@@ -47,6 +47,49 @@ Upon starting the application, follow these steps to set it up:
 3. **Control Blinds and Scenes**:
     - Use the bottom navigation buttons to switch between blinds and scenes management.
     - Adjust blinds positions and activate scenes as needed.
+  
+## Packaging the App
+
+### Prerequisites
+
+1. **Node.js and npm**: Ensure you have Node.js and npm installed from [nodejs.org](https://nodejs.org/).
+
+2. **Electron Packager**: Install Electron Packager globally:
+    ```sh
+    npm install -g electron-packager
+    ```
+
+### Steps to Package
+
+1. **Navigate to your project directory**:
+    ```sh
+    cd PowerView_App_by_BenZo
+    ```
+
+2. **Install all dependencies**:
+    ```sh
+    npm install
+    ```
+
+3. **Package the Application**:
+    - **Windows**:
+      ```sh
+      electron-packager . PowerViewApp --platform=win32 --arch=x64 --out=dist --overwrite
+      ```
+    - **macOS**:
+      ```sh
+      electron-packager . PowerViewApp --platform=darwin --arch=x64 --out=dist --overwrite
+      ```
+    - **Linux**:
+      ```sh
+      electron-packager . PowerViewApp --platform=linux --arch=x64 --out=dist --overwrite
+      ```
+
+### Customizing the Packaging Command
+
+To include an icon and ignore certain files:
+```sh
+electron-packager . PowerViewApp --platform=win32 --arch=x64 --out=dist --overwrite --icon=path/to/icon.ico --ignore="node_modules"
 
 ## Files and Structure
 
