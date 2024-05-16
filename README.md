@@ -91,7 +91,7 @@ To contribute to the development of PowerView App by BenZo, follow these steps:
 
 <img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/3654adf7-a04b-498d-aebd-0e4d3337c091" alt="Image 2" width="400" height="300">
 
-<img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/0c773185-9aa1-4342-a99b-7006e8128e9b" alt="Image 3" width="400" height="300">
+<img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/0c773185-9aa1-4342-a99b-7006e8128e9b" alt="Image 3" width="300" height="500">
 
 ## License
 
