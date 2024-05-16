@@ -1,6 +1,6 @@
 # ignore ALL .log files
 *.log
-
+.idea
 # ignore ALL files in ANY directory named temp, dist or build
 temp/
 dist/
