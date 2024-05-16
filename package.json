@@ -1,0 +1,19 @@
+{
+  "name": "PowerView_App_by_benZo",
+  "version": "1.0.0",
+  "description": "A PowerView app for desktop",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "BenZo",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^30.0.2",
+    "electron-packager": "^17.1.2"
+  },
+  "dependencies": {
+    "electron-prompt": "^1.7.0",
+    "node-fetch": "^3.3.2"
+  }
+}

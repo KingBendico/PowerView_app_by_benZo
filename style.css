@@ -1,0 +1,245 @@
+/* Main content area */
+.content {
+    margin-bottom: 60px; /* Reserve space for bottom navigation */
+    padding: 10px;
+}
+
+/* Cards for room display */
+.card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 10px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+}
+
+#content, #info {
+    width: 80%;
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+#content {
+    padding-top: 10px; /* Reduce top padding to avoid too much space */
+    margin-top: 40px; /* Adjust margin to balance space */
+}
+
+.hidden {
+    display: none;
+}
+
+.card {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    padding: 10px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: #333;
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+}
+
+.bottom-nav button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.bottom-nav button:hover {
+    background: #676565;
+}
+
+.bottom-nav i {
+    margin-right: 5px; /* Space between icon and text */
+}
+
+/*.settings-button {
+    position: fixed; !* Use fixed position to avoid overlapping *!
+    top: 10px;
+    right: 10px;
+    z-index: 1000; !* Ensure it is on top *!
+    cursor: pointer;
+    margin: 0; !* Ensure there's no additional margin *!
+}*/
+
+/*
+.settings-button i {
+    font-size: 24px;
+}
+*/
+
+
+.top-buttons {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.info-button, .settings-button {
+    cursor: pointer;
+    font-size: 24px;
+}
+
+.info-button i, .settings-button i {
+    color: #333;
+}
+
+.info-button:hover i, .settings-button:hover i {
+    color: #000;
+}
+
+
+
+
+/* Styling the scrollbar for Electron */
+::-webkit-scrollbar {
+    border: none;
+    background-color: transparent;
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #282c34;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.active-scene {
+    border: 2px solid green;
+    background-color: #e0ffe0;
+}
+
+/* CSS */
+.button-4 {
+    appearance: none;
+    background-color: #FAFBFC;
+    border: 1px solid rgba(27, 31, 35, 0.15);
+    border-radius: 6px;
+    box-shadow: rgba(27, 31, 35, 0.04) 0 1px 0, rgba(255, 255, 255, 0.25) 0 1px 0 inset;
+    box-sizing: border-box;
+    color: #24292E;
+    cursor: pointer;
+    display: inline-block;
+    font-family: -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    list-style: none;
+    padding: 6px 16px;
+    position: relative;
+    transition: background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    vertical-align: middle;
+    white-space: nowrap;
+    word-wrap: break-word;
+}
+
+.button-4:hover {
+    background-color: #80de0d;
+    text-decoration: none;
+    transition-duration: 0.1s;
+}
+
+.button-4:disabled {
+    background-color: #FAFBFC;
+    border-color: rgba(27, 31, 35, 0.15);
+    color: #959DA5;
+    cursor: default;
+}
+
+.button-4:active {
+    background-color: #EDEFF2;
+    box-shadow: rgba(225, 228, 232, 0.2) 0 1px 0 inset;
+    transition: none 0s;
+}
+
+.button-4:focus {
+    outline: 1px transparent;
+}
+
+.button-4:before {
+    display: none;
+}
+
+.button-4::-webkit-details-marker {
+    display: none;
+}
+
+.card {
+    border: 3px solid #ccc;
+    margin: 5px;
+    padding: 5px;
+    cursor: pointer;
+}
+
+.card-title {
+    display: block;
+    width: 100%;
+    padding: 5px; /* Adjust padding as needed */
+    cursor: pointer;
+}
+
+.scene-content {
+    display: none; /* Initially hide the scenes */
+    padding-left: 20px;
+}
+
+.card:hover {
+    /*   background-color: #f0f0f0;*/
+}
+
+h2, h3, h4, p {
+    text-align: center;
+    margin: 10px auto;
+    width: 100%; /* Ensures the element takes the full width of its container */
+}
