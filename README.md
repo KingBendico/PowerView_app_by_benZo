@@ -85,12 +85,6 @@ Upon starting the application, follow these steps to set it up:
       electron-packager . PowerViewApp --platform=linux --arch=x64 --out=dist --overwrite
       ```
 
-### Customizing the Packaging Command
-
-To include an icon and ignore certain files:
-```sh
-electron-packager . PowerViewApp --platform=win32 --arch=x64 --out=dist --overwrite --icon=path/to/icon.ico --ignore="node_modules"
-
 ## Files and Structure
 
 - **index.html**: The main interface of the application.
