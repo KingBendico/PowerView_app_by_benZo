@@ -60,6 +60,14 @@ Upon starting the application, follow these steps to set it up:
 - **package.json**: Node.js dependencies and scripts.
 - **package-lock.json**: Lockfile for Node.js dependencies.
 
+## Preview
+
+<img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/c415ffdb-239e-4b11-82df-2ff616fef8ea" alt="Image 1" width="200" height="150">
+
+<img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/3654adf7-a04b-498d-aebd-0e4d3337c091" alt="Image 2" width="200" height="150">
+
+<img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/0c773185-9aa1-4342-a99b-7006e8128e9b" alt="Image 3" width="150" height="250">
+
 ## Development
 
 To contribute to the development of PowerView App by BenZo, follow these steps:
@@ -83,15 +91,6 @@ To contribute to the development of PowerView App by BenZo, follow these steps:
 
 5. **Create a Pull Request**:
     - Go to the original repository on GitHub and create a pull request from your fork.
-
-## PREVIEW
-
-
-<img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/c415ffdb-239e-4b11-82df-2ff616fef8ea" alt="Image 1" width="400" height="300">
-
-<img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/3654adf7-a04b-498d-aebd-0e4d3337c091" alt="Image 2" width="400" height="300">
-
-<img src="https://github.com/KingBendico/PowerView_app_by_benZo/assets/29133994/0c773185-9aa1-4342-a99b-7006e8128e9b" alt="Image 3" width="300" height="500">
 
 ## License
 
