@@ -1,4 +1,4 @@
-*** Please note: This app is a work in progress. Essentially, this is a beta version. More features and improvements will be added in the future. 
+*** Please note: This app is a work in progress. Essentially, this is a beta version. More features and improvements will be added in the future. ***
 
 # PowerView App by BenZo
 
