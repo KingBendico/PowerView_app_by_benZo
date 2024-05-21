@@ -13,7 +13,7 @@ PowerView App by BenZo is an open-source desktop application designed to control
 - **Blinds Control**: Adjust the positions of your blinds individually or in groups.
 - **Scenes Management**: Activate and manage different scenes.
 - **Room Grouping**: View and manage blinds grouped by room.
-- **Settings Management**: Configure the IP address of your PowerView gateway for seamless connection.
+- **Settings Management**: Configure the IP address of your PowerView gateway manually, or scan your local network to automatically find and set up available PowerView gateways.
 
 ## Installation
 
