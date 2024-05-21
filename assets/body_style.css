@@ -1,0 +1,87 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+}
+.container {
+    display: flex;
+    flex-direction: column;
+}
+.input-group {
+    margin-bottom: 15px;
+}
+.input-group label {
+    margin-bottom: 5px;
+}
+.input-group input {
+    padding: 8px;
+    font-size: 14px;
+    width: 100%;
+}
+.button-group {
+    display: flex;
+    justify-content: space-between;
+}
+button {
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+}
+#scan-results {
+    margin-top: 20px;
+}
+.device {
+    background-color: #fff;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s, box-shadow 0.3s, cursor 0.3s;
+    cursor: pointer;
+}
+.device:hover {
+    background-color: #f0f0f0;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+}
+.scanning-message, .found-message, .advice-message {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 5px;
+}
+.scanning-message {
+    color: #007bff;
+}
+.found-message {
+    color: #28a745;
+}
+.advice-message {
+    color: #ff9800;
+}
+#progress-bar-container {
+    display: none;
+    width: 100%;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 20px;
+    position: relative;
+}
+#progress-bar {
+    height: 20px;
+    width: 0;
+    background-color: #28a745;
+    border-radius: 5px;
+    position: relative;
+}
+#progress-text {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    top: 0;
+    color: #000;
+    font-weight: bold;
+}

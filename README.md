@@ -1,6 +1,6 @@
 # PowerView App by BenZo
 
-<img src="PowerView.png" alt="PowerView Logo" width="256" height="256">
+<img src="assets/PowerView.png" alt="PowerView Logo" width="256" height="256">
 
 ## Overview
 

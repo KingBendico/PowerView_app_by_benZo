@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="../assets/body_style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+
+</head>
+<body>
+<h1>Settings</h1>
+<div class="container">
+    <div class="input-group">
+        <label for="ipAddress">PowerView gateway IP Address:</label>
+        <input type="text" id="ipAddress" placeholder="e.g., 192.168.1.1">
+    </div>
+    <div class="button-group">
+        <button id="scanButton">Scan Network</button>
+        <button id="saveButton">Save</button>
+        <button id="cancelButton">Cancel</button>
+    </div>
+    <div id="scan-results"></div>
+    <div id="messages"></div>
+    <div id="progress-bar-container">
+        <div id="progress-bar"></div>
+        <div id="progress-text">0%</div>
+    </div>
+    <div id="instruction-message" class="instruction-message">
+        Please either enter the IP address manually or scan the network to find your PowerView gateway(s).
+    </div>
+</div>
+
+<script>
+    const { ipcRenderer } = require('electron');
+
+    // Load current IP address
+    ipcRenderer.invoke('get-config').then(config => {
+        document.getElementById('ipAddress').value = config.ipAddress || '';
+    });
+
+    document.getElementById('saveButton').addEventListener('click', () => {
+        const ipAddress = document.getElementById('ipAddress').value;
+        ipcRenderer.send('save-ip-address', ipAddress);
+        window.close();
+    });
+
+    document.getElementById('cancelButton').addEventListener('click', () => {
+        window.close();
+    });
+
+    document.getElementById('scanButton').addEventListener('click', () => {
+        const resultsElement = document.getElementById('scan-results');
+        const messagesElement = document.getElementById('messages');
+        const progressBarContainer = document.getElementById('progress-bar-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const instructionMessage = document.getElementById('instruction-message');
+
+        resultsElement.innerHTML = '';
+        messagesElement.innerHTML = '<div class="scanning-message">Scanning network, please be patient...</div>';
+        progressBarContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+        instructionMessage.style.display = 'none';  // Hide instruction message
+
+        ipcRenderer.invoke('scan-network').then((devices) => {
+            messagesElement.innerHTML = '';
+
+            if (devices.length > 0) {
+                resultsElement.innerHTML = devices.map(device => `
+                    <div class="device" data-ip="${device.ip}">
+                        IP: ${device.ip}, Name: ${device.name}
+                    </div>
+                `).join('');
+                if (devices.length === 1) {
+                    messagesElement.innerHTML += '<div class="found-message">Gateway has been found!</div>';
+            }
+                if (devices.length > 1) {
+                    messagesElement.innerHTML += '<div class="found-message">Gateways have been found!</div>';
+                    const sortedDevices = devices.sort((a, b) => a.ip.localeCompare(b.ip));
+                    const adviceMessage = `
+                        <div class="advice-message">
+                            Multiple gateways found. The gateway with the lower IP address (e.g., ${sortedDevices[0].ip})
+                            is likely the primary gateway.
+                        </div>`;
+                    messagesElement.innerHTML += adviceMessage;
+                }
+
+                // Attach event listeners to device elements for selecting IP address
+                document.querySelectorAll('.device').forEach(deviceElement => {
+                    deviceElement.addEventListener('click', () => {
+                        const ipAddress = deviceElement.getAttribute('data-ip');
+                        document.getElementById('ipAddress').value = ipAddress;
+                        ipcRenderer.send('save-ip-address', ipAddress);
+                        window.close();
+                    });
+                });
+            } else {
+                resultsElement.innerHTML = '<div class="found-message">No gateways found.</div>';
+            }
+
+            progressBarContainer.style.display = 'none';
+        });
+    });
+
+    ipcRenderer.on('progress-update', (event, progress) => {
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const newWidth = (progress.current / progress.total) * 100;
+        progressBar.style.width = `${newWidth}%`;
+        progressText.textContent = `${Math.round(newWidth)}%`;
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" type="text/css" href="../assets/style.css">
+    <title>PowerView App (By Benzo)</title>
+</head>
+<body>
+<div id="content">
+    <h2>PowerView app (By Benzo)</h2>
+    <p>Select an option below to navigate.</p>
+</div>
+
+<!-- Information about entering the IP address -->
+<div id="info">
+    <h3>Important Information</h3>
+    <p>To ensure the proper functionality of the PowerView app, you must enter the IP address of your local network device.</p>
+    <h4>How to Enter the IP Address:</h4>
+    <ol>
+        <li><b>Click on the Settings Button</b>: Locate the settings button in the top-right corner of the application window. This button is represented by a cogwheel icon (⚙️).</li>
+        <li><b>Open the Settings Window</b>: Clicking the settings button will open the settings window.</li>
+        <li><b>Enter the IP Address</b>: In the settings window, you will find a field labeled "IP Address." Please enter the IP address of your local network device in this field. The IP address should be in the format <code>192.168.1.1</code>.</li>
+        <li><b>Save the IP Address</b>: After entering the IP address, click the "Save" button to store this information. The application will use this IP address to connect to your local network device.</li>
+        <li><b>Close the Settings Window</b>: Once the IP address is saved, you can close the settings window.</li>
+    </ol>
+
+    <h4>Where to Find the PowerView Primary Gateway IP:</h4>
+    <ol>
+        <li><b>Check Your Router's GUI</b>: Access your router's graphical user interface (GUI) to view all connected devices. Look for a device named "PowerView-G3." If there is more than one PowerView gateway, the primary gateway is typically the one with the lower IP address (e.g., <code>192.168.0.101</code> is likely the primary gateway compared to <code>192.168.0.102</code>).</li>
+        <li><b>Use the Browser</b>: Type or copy this URL into your browser: <a href="http://powerview-g3.local/gateway/swagger?enable=true" target="_blank">http://powerview-g3.local/gateway/swagger?enable=true</a>. This will enable/start the Swagger UI for the PowerView gateway. Note that it uses port 3002, while the execution server uses port 80.</li>
+    </ol>
+</div>
+
+<!-- Bottom navigation bar -->
+<div class="bottom-nav">
+    <button id="btn-blinds">
+        <i class="fas fa-window-maximize"></i> Blinds
+    </button>
+    <button id="btn-scenes">
+        <i class="fa-solid fa-play"></i> Scenes
+    </button>
+</div>
+
+<!-- Info and Settings buttons -->
+<div class="top-buttons">
+    <div class="info-button" id="infoButton">
+        <i class="fas fa-info-circle"></i>
+    </div>
+    <div class="settings-button" id="settingsButton">
+        <i class="fas fa-cog"></i>
+    </div>
+</div>
+
+<script src="../src/renderer/renderer.js"></script>
+<script src="../src/logic/hide_buttons.js" ></script>
+</body>
+</html>

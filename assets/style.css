@@ -1,0 +1,229 @@
+/* Global Styles */
+* {
+    box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height */
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* Center content vertically */
+    min-height: 100vh; /* Ensures the body takes the full height of the viewport */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+}
+
+/* Main Content and Info Containers */
+#content, #info {
+    width: 80%;
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+#content {
+    padding-top: 10px; /* Reduce top padding to avoid too much space */
+    margin-top: 40px; /* Adjust margin to balance space */
+}
+
+/* Cards for Room Display */
+.card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.card:hover {
+    background-color: #f0f0f0;
+}
+
+/* Hidden Elements */
+.hidden {
+    display: none;
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: #333;
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+}
+
+.bottom-nav button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.bottom-nav button:hover {
+    background: #676565;
+}
+
+.bottom-nav i {
+    margin-right: 5px; /* Space between icon and text */
+}
+
+/* Top Buttons */
+.top-buttons {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.info-button, .settings-button {
+    cursor: pointer;
+    font-size: 24px;
+}
+
+.info-button i, .settings-button i {
+    color: #333;
+}
+
+.info-button:hover i, .settings-button:hover i {
+    color: #000;
+}
+
+/* Styling the Scrollbar for Electron */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #282c34;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Active Scene Highlight */
+.active-scene {
+    border: 2px solid green;
+    background-color: #e0ffe0;
+}
+
+/* Button Styles */
+.button-4 {
+    appearance: none;
+    background-color: #FAFBFC;
+    border: 1px solid rgba(27, 31, 35, 0.15);
+    border-radius: 6px;
+    box-shadow: rgba(27, 31, 35, 0.04) 0 1px 0, rgba(255, 255, 255, 0.25) 0 1px 0 inset;
+    box-sizing: border-box;
+    color: #24292E;
+    cursor: pointer;
+    display: inline-block;
+    font-family: -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    padding: 6px 16px;
+    transition: background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1);
+    user-select: none;
+    vertical-align: middle;
+    white-space: nowrap;
+    word-wrap: break-word;
+}
+
+.button-4:hover {
+    background-color: #80de0d;
+    text-decoration: none;
+    transition-duration: 0.1s;
+}
+
+.button-4:disabled {
+    background-color: #FAFBFC;
+    border-color: rgba(27, 31, 35, 0.15);
+    color: #959DA5;
+    cursor: default;
+}
+
+.button-4:active {
+    background-color: #EDEFF2;
+    box-shadow: rgba(225, 228, 232, 0.2) 0 1px 0 inset;
+    transition: none 0s;
+}
+
+.button-4:focus {
+    outline: 1px transparent;
+}
+
+.button-4:before {
+    display: none;
+}
+
+.button-4::-webkit-details-marker {
+    display: none;
+}
+
+/* Scene Content */
+.scene-content {
+    display: none; /* Initially hide the scenes */
+    padding-left: 20px;
+}
+
+/* Headings and Paragraphs */
+h2, h3, h4, p {
+    text-align: center;
+    margin: 10px auto;
+    width: 100%; /* Ensures the element takes the full width of its container */
+}
+
+/* Media Queries for Responsiveness */
+@media (max-width: 600px) {
+    #content, #info {
+        width: 90%;
+        margin: 10px auto;
+    }
+
+    .card {
+        padding: 12px;
+        margin: 8px;
+    }
+
+    .card-title {
+        font-size: 16px;
+    }
+
+    .top-buttons {
+        top: 5px;
+        right: 5px;
+        gap: 5px;
+    }
+
+    .info-button, .settings-button {
+        font-size: 20px;
+    }
+}
+
