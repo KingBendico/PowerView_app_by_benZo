@@ -21,7 +21,7 @@ To get started with PowerView App by BenZo, follow these steps:
 
 1. **Clone the Repository**:
     ```sh
-    git clone https://github.com/yourusername/PowerView_App_by_BenZo.git
+    git clone https://github.com/KingBendico/PowerView_App_by_BenZo.git
     cd PowerView_App_by_BenZo
     ```
 
