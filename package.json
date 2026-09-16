@@ -1,21 +1,59 @@
 {
   "name": "PowerView_App_by_benZo",
-  "version": "1.0.0",
-  "description": "A PowerView app for desktop",
+  "productName": "PowerView",
+  "version": "1.1.0-beta.1",
+  "description": "Local desktop control for PowerView Gen 3 shades and scenes",
   "main": "src/main/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "demo": "electron . --demo",
+    "test": "node --test test/*.test.cjs",
+    "check": "node scripts/check.cjs",
+    "smoke": "electron scripts/smoke.cjs",
+    "package": "node scripts/package.cjs",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac dmg",
+    "fetch-openapi": "node scripts/fetch-powerview-openapi.js"
   },
   "author": "BenZo",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "devDependencies": {
-    "electron": "^30.0.6",
-    "electron-packager": "^17.1.2"
+    "@electron/packager": "^20.3.0",
+    "electron": "44.4.1",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
-    "electron-prompt": "^1.7.0",
-    "node-arp": "^1.0.6",
-    "node-fetch": "^3.3.2",
-    "ping": "^0.4.4"
+    "@fortawesome/fontawesome-free": "6.7.2",
+    "bonjour-service": "^1.3.0"
+  },
+  "build": {
+    "appId": "com.example.powerview",
+    "productName": "PowerView",
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/PowerView_big.icns"
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "files": [
+      "views/**/*",
+      "assets/**/*",
+      "src/**/*",
+      "shade.html",
+      "resources/**/*",
+      "!**/.DS_Store"
+    ],
+    "directories": {
+      "buildResources": "assets",
+      "output": "release"
+    }
   }
 }

@@ -1,0 +1,23 @@
+{
+  "at": "2026-09-16T12:16:48.498Z",
+  "electron": "44.4.1",
+  "platform": "darwin",
+  "arch": "arm64",
+  "checks": [
+    "isolated renderer, working preload, Home and demo banner",
+    "25% preset means 25% closed and single-axis commands work",
+    "precise numeric entry and reported state",
+    "type 9 preserves dual controls and rail keyboard operation",
+    "pinning a shade places its controls on Home",
+    "scene activation refreshes reported active scenes",
+    "late refresh cannot reopen a previous room",
+    "settings traps focus, Escape restores focus, dark theme works",
+    "360px window and enlarged text avoid horizontal overflow",
+    "real IPC and HTTP failures retain reported positions; no extra axis",
+    "live SSE updates the visual and reported position",
+    "invalid target IDs are rejected at the main-process boundary",
+    "captured native light/dark and narrow screenshots"
+  ],
+  "rendererErrors": [],
+  "realHardwareTested": false
+}

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('powerview-theme');
+                if (t !== 'light' && t !== 'dark') {
+                    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="../assets/body_style.css">
+    <title>Help — PowerView</title>
+</head>
+<body class="info-help-page">
+    <header class="info-help-header">
+        <h1>PowerView App — help</h1>
+        <button type="button" class="btn-primary info-help-close" id="infoCloseBtn">Close</button>
+    </header>
+
+    <div class="info-help-body">
+        <p class="info-help-lead">This app controls Hunter Douglas PowerView shades and scenes through your <b>primary gateway</b> on your home network.</p>
+
+        <h2 class="info-help-h2">Blinds</h2>
+        <p>Opens first when you launch the app. Pick a <b>room</b>, then adjust each shade. Rooms can be sorted by gateway order, A–Z, or recent. Shades are shown as tiles: drag the window graphic or type a percentage. Dual shades (top rail + bottom hem) use two grips; single-motor shades use one.</p>
+
+        <h2 class="info-help-h2">Scenes</h2>
+        <p>Use <b>Scenes</b> in the bottom bar to run gateway scenes. Star favorites and use recent chips for quick access.</p>
+
+        <h2 class="info-help-h2">Connection &amp; settings</h2>
+        <p>Set the gateway <b>IPv4 address</b> under the gear icon. Use <b>Test connection</b> or <b>Open Swagger UI</b> in settings if you need to check the hub. A yellow bar on the main window means the app cannot reach the gateway (wrong IP, hub offline, or network issue).</p>
+
+        <h2 class="info-help-h2">Tips</h2>
+        <ul class="info-help-list">
+            <li><b>Theme</b>: toggle light and dark with the sun/moon button on the main window.</li>
+            <li><b>Escape</b> leaves a room's shade view and returns to all rooms.</li>
+            <li><b>Ctrl+B</b> / <b>Ctrl+S</b> jump to Blinds or Scenes.</li>
+            <li><b>Ctrl+1</b>–<b>Ctrl+9</b> open the first nine rooms in the same order as the Blinds grid (Gateway / A–Z / Recent) on Windows, Linux, and Mac — use the <b>Control</b> key. Numpad 1–9 works too. Number badges on tiles show the shortcut.</li>
+            <li>If you opened this page in its own window, <b>Escape</b> or <b>Close</b> closes it. In the main app, help appears as an overlay on the same window.</li>
+        </ul>
+
+        <h2 class="info-help-h2">Finding the gateway IP</h2>
+        <p>On your router's device list, look for <b>PowerView-G3</b> (or similar). If you have two gateways, the primary is often the <b>lower</b> IP (e.g. <code>192.168.0.101</code> vs <code>192.168.0.102</code>). Your hub also answers at <a href="http://powerview-g3.local" target="_blank" rel="noopener">powerview-g3.local</a> on many networks.</p>
+    </div>
+
+    <script>
+        (function () {
+            const { ipcRenderer } = require('electron');
+            document.getElementById('infoCloseBtn').addEventListener('click', function () {
+                window.close();
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    window.close();
+                }
+            });
+            ipcRenderer.on('set-data-theme', function (_e, mode) {
+                var m = mode === 'dark' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', m);
+                try {
+                    localStorage.setItem('powerview-theme', m);
+                } catch (err) {}
+            });
+        })();
+    </script>
+</body>
+</html>

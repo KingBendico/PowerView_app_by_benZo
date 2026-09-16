@@ -6,3 +6,10 @@ temp/
 dist/
 node_modules/
 
+# OpenAPI export from your gateway (contains your IP in servers[]); regenerate with npm run fetch-openapi
+docs/powerview-gateway-openapi.json
+
+
+release/
+.DS_Store
+*.tmp
