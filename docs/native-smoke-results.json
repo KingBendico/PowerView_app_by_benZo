@@ -1,10 +1,14 @@
 {
-  "at": "2026-09-17T20:10:28.715Z",
+  "at": "2026-09-17T22:16:56.161Z",
   "electron": "44.4.1",
   "platform": "darwin",
   "arch": "arm64",
   "checks": [
     "isolated renderer, working preload, Home and demo banner",
+    "schedule timeline filters weekdays and paused routines, shows setup errors and sends no movement",
+    "health reports battery ranges, wired power and unknown values, and opens the correct room",
+    "activity separates accepted app commands from live position reports and supports issue filters",
+    "schedule, health and activity views fit narrow dark windows and preserve focused filters during updates",
     "25% preset means 25% closed and single-axis commands work",
     "precise numeric entry and reported state",
     "single-shade grips remain reachable at both endpoints and grabbing them does not jump",
@@ -44,6 +48,7 @@
     "live SSE updates the visual and reported position",
     "gateway travel events animate between reports and final feedback settles precisely",
     "invalid target IDs are rejected at the main-process boundary",
+    "optional schedule HTTP failures keep cached rows and live controls; empty lists are shown honestly",
     "captured native light/dark and narrow screenshots"
   ],
   "rendererErrors": [],

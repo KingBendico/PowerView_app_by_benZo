@@ -4,6 +4,7 @@ const { DemoGateway } = require('./demo-gateway');
 const { presetFor, validatePositions } = require('./capabilities');
 const { project, matches } = require('../shared/shade-motion');
 const { cleanAppearance } = require('./config-store');
+const { positionText } = require('../shared/home-insights');
 
 class Controller extends EventEmitter {
   constructor(store, { clientFactory = address => new GatewayClient(address), scheduleRefresh = true, now = Date.now } = {}) {
@@ -135,6 +136,12 @@ class Controller extends EventEmitter {
     if (this.state.pending[key]) throw new Error('A command is already being sent. Please wait.');
     const epoch = this.epoch; const client = this.client;
     const requestId = ++this.commandSequence;
+    const [kind, targetId] = key.split(':');
+    const target = this.state.snapshot?.[kind === 'scene' ? 'scenes' : 'shades'].find(item => item.id === targetId);
+    const activity = { id: `command-${epoch}-${requestId}`, kind: 'command', source: 'app', targetId,
+      targetName: target?.name, title: request ? 'Set position' : kind === 'stop' ? 'Stop shade' : kind === 'scene' ? 'Run scene' : 'Jog shade' };
+    const activityDetail = request ? positionText(target, request.positions) : '';
+    this.emit('activity', { ...activity, status: 'pending', detail: activityDetail || 'Sending command…' });
     if (request) {
       this.state.targets[request.id] = { positions: { ...request.positions }, requestId, requestedAt: this.now() };
       this.watchMotion(request.id, 12000);
@@ -146,9 +153,11 @@ class Controller extends EventEmitter {
       if (!['moving', 'reported'].includes(this.state.feedback[key]?.kind)) {
         this.state.feedback[key] = { kind: 'success', message: 'Command accepted · awaiting reported position', at: new Date().toISOString() };
       }
+      this.emit('activity', { ...activity, status: 'accepted', detail: [activityDetail, 'Command accepted'].filter(Boolean).join(' · ') });
       this.queueRefresh(); return { accepted: true };
     } catch (error) {
       if (epoch === this.epoch) {
+        this.emit('activity', { ...activity, status: 'error', detail: error.message });
         this.state.feedback[key] = { kind: 'error', message: error.message };
         if (request && this.state.targets[request.id]?.requestId === requestId) delete this.state.targets[request.id];
         if (request && !this.state.motions[request.id]) { clearTimeout(this.motionTimers.get(request.id)); this.motionTimers.delete(request.id); }
@@ -278,7 +287,12 @@ class Controller extends EventEmitter {
       this.state.motions[key] = { ...motion, from: project(motion, this.now()), startedAt: this.now(), durationMs: null, status };
     }
   }
-  finishMotion(id, positions) {
+  finishMotion(id, positions, fromEvent = false) {
+    if (!fromEvent && (this.state.motions[id] || this.state.targets[id])) {
+      const shade = this.state.snapshot?.shades.find(item => item.id === id);
+      this.emit('activity', { kind: 'report', source: 'gateway', status: 'reported', title: 'Position confirmed by refresh',
+        targetId: id, targetName: shade?.name, detail: positionText(shade, positions) });
+    }
     delete this.state.motions[id]; delete this.state.targets[id];
     clearTimeout(this.motionTimers.get(id)); this.motionTimers.delete(id);
     this.positionGuards.set(id, { positions: { ...positions }, until: this.now() + 5000 });
@@ -295,6 +309,9 @@ class Controller extends EventEmitter {
   applyEvent(event) {
     if (!event || typeof event !== 'object' || !this.state.snapshot) return;
     const snapshot = this.state.snapshot;
+    if (['homedoc-updated', 'scene-add', 'scene-del'].includes(event.evt)) {
+      this.emit('gateway-event', event); this.queueRefresh(); return;
+    }
     const shade = snapshot.shades.find(item => item.id === String(event.id));
     if (shade && ['motion-started', 'motion-stopped'].includes(event.evt)) {
       const stamp = Date.parse(event.isoDate);
@@ -311,7 +328,7 @@ class Controller extends EventEmitter {
         this.state.feedback[key] = { kind: 'moving', message: durationMs ? 'Moving · estimated between gateway reports' : 'Moving · waiting for position updates' };
         this.watchMotion(shade.id, (durationMs || 15000) + 3000);
       } else if (Object.keys(positions).length) {
-        this.finishMotion(shade.id, shade.positions);
+        this.finishMotion(shade.id, shade.positions, true);
       } else {
         this.freezeMotion('stopping', shade.id); delete this.state.targets[shade.id];
         this.watchMotion(shade.id, 500); this.queueRefresh();

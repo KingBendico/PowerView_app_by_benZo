@@ -18,7 +18,7 @@ function reportedText(shade) {
 }
 function updateNavigation() {
     const selected = currentMainView === 'room-shades' ? 'blinds' : currentMainView === 'rooms' ? 'blinds' : currentMainView;
-    for (const name of ['home', 'blinds', 'scenes']) {
+    for (const name of ['home', 'blinds', 'scenes', 'schedules', 'health']) {
         const button = document.getElementById(`btn-${name}`);
         button.classList.toggle('is-active', selected === name);
         if (selected === name) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
@@ -87,11 +87,14 @@ function applyState(state) {
         if (star) { star.classList.toggle('is-favorite', state.favorites.shadeIds.includes(shade.id)); star.setAttribute('aria-pressed', String(state.favorites.shadeIds.includes(shade.id))); }
     }
     updateSceneButtons(); updateCommandAvailability(); updateHomeSummary(); updateNavigation(); finalizeInitialShellReveal();
+    window.homeInsights?.update();
 }
 function renderCurrentView() {
     if (currentMainView === 'room-shades' && allRooms.some(room => room.id === displayedRoomId)) displayShadesInRoom(displayedRoomId);
     else if (currentMainView === 'scenes') displayScenesByRoom();
     else if (currentMainView === 'rooms') showRooms(allRooms);
+    else if (currentMainView === 'schedules') window.homeInsights?.showSchedules();
+    else if (currentMainView === 'health') window.homeInsights?.showHealth();
     else { currentMainView = 'home'; showHome(); }
     updateNavigation(); updateCommandAvailability();
 }

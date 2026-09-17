@@ -1,5 +1,6 @@
 const { isIP } = require('node:net');
 const { capabilitiesFor, validatePositions } = require('./capabilities');
+const { normalizeHealth, normalizeAutomations, firmware } = require('../shared/home-insights');
 
 class GatewayError extends Error {
   constructor(message, code = 'GATEWAY_ERROR') { super(message); this.name = 'GatewayError'; this.code = code; }
@@ -51,8 +52,7 @@ function normalizeSnapshot({ rooms, shades, scenes, colors = {}, active = [] }, 
       return { id: id(shade.id), roomId: shade.roomId == null ? null : id(shade.roomId), name: label(shade, 'Unnamed shade'),
         type: Number(shade.type), capabilities: shade.capabilities, controls: capabilities, positions,
         available: shade.timedOut !== true && shade.positions?.primary !== null,
-        batteryPercent: typeof shade.batteryPercent === 'number' && shade.batteryPercent >= 0 && shade.batteryPercent <= 100 ? Math.round(shade.batteryPercent) : null,
-        batteryLow: false, batteryStatus: Number.isInteger(shade.batteryStatus) ? shade.batteryStatus : null };
+        ...normalizeHealth(shade) };
     }),
     scenes: collection(scenes, 'scene').map(scene => ({ id: id(scene.id), name: label(scene, 'Unnamed scene'),
       roomIds: Array.isArray(scene.roomIds) ? scene.roomIds.map(id) : [] })),
@@ -108,6 +108,12 @@ class GatewayClient {
       this.request('/home/colors').catch(() => ({})), this.request('/home/scenes/active').catch(() => []),
     ]);
     return normalizeSnapshot({ rooms, shades, scenes, colors, active }, this.address);
+  }
+  async getAutomations() { return normalizeAutomations(await this.request('/home/automations')); }
+  async getGatewayInfo() {
+    const data = await this.request('/gateway/info');
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new GatewayError('Gateway information was not reported.', 'INVALID_RESPONSE');
+    return { firmware: firmware(data.fwVersion) };
   }
   setPositions(shade, positions) {
     return this.request(`/home/shades/positions?ids=${encodeURIComponent(id(shade.id))}`, { method: 'PUT', body: { positions: validatePositions(shade, positions) } });

@@ -11,6 +11,8 @@ const subscribe = (channel, callback) => {
 };
 contextBridge.exposeInMainWorld('powerView', {
   getState: () => invoke('get-state'), getConfig: () => invoke('get-config'),
+  getInsights: () => invoke('get-insights'), refreshInsights: () => invoke('refresh-insights'),
+  onInsights: callback => subscribe('insights-state', callback),
   getPrefs: () => invoke('get-prefs'), setPrefs: value => invoke('set-prefs', value),
   connect: address => invoke('connect', address), refresh: () => invoke('refresh'),
   demo: enabled => invoke('demo', enabled), validateGateway: address => invoke('validate-gateway', address),

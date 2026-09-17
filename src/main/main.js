@@ -7,6 +7,7 @@ const { ConfigStore } = require('./config-store');
 const { Controller } = require('./controller');
 const { Shortcuts } = require('./shortcuts');
 const { SavedControls } = require('./saved-controls');
+const { HomeInsights } = require('./home-insights');
 const { GatewayClient, normalizeAddress } = require('./gateway-client');
 const { Discovery } = require('./discovery');
 const { NetworkScan, interfaces } = require('./network-scan');
@@ -16,7 +17,7 @@ const mainUrl = pathToFileURL(path.join(basePath, 'views/index.html')).href;
 const dataArg = process.argv.find(value => value.startsWith('--data-dir='));
 if (dataArg) app.setPath('userData', path.resolve(dataArg.slice(11)));
 else if (process.argv.includes('--demo')) app.setPath('userData', path.join(app.getPath('userData'), 'demo-profile'));
-let mainWindow, tray, controller, store, shortcuts, savedControls, refreshTimer, quitting = false;
+let mainWindow, tray, controller, store, shortcuts, savedControls, insights, refreshTimer, quitting = false;
 const discovery = new Discovery();
 const scanner = new NetworkScan();
 function send(channel, payload) {
@@ -194,6 +195,8 @@ async function ensureSwaggerUiReady(ip) {
 
 function installHandlers() {
   handle('get-state', () => controller.getState());
+  handle('get-insights', () => insights.getState());
+  handle('refresh-insights', () => insights.refresh());
   handle('get-config', () => store.get());
   handle('get-prefs', getPrefs);
   handle('set-prefs', setPrefs);
@@ -238,6 +241,8 @@ function installHandlers() {
 }
 app.whenReady().then(async () => {
   store = new ConfigStore(app.getPath('userData')); controller = new Controller(store);
+  insights = new HomeInsights(controller);
+  insights.on('state', state => send('insights-state', state));
   savedControls = new SavedControls(controller, { notify: message => send('command-notice', message) });
   savedControls.on('state', state => send('saved-controls-state', state));
   powerMonitor.on('suspend', () => savedControls.cancelAll('Computer sleeping · timer cancelled.'));
@@ -262,9 +267,11 @@ app.whenReady().then(async () => {
   }
   if (process.argv.includes('--demo')) await controller.connect('', { demo: true }).catch(() => {});
   else if (store.get().ipAddress) await controller.connect(store.get().ipAddress).catch(() => {});
-  refreshTimer = setInterval(() => { if (controller.client) controller.refresh().catch(() => {}); }, 60000);
+  refreshTimer = setInterval(() => {
+    if (controller.client) { controller.refresh().catch(() => {}); void insights.refresh(); }
+  }, 60000);
   app.on('activate', () => showWindow());
 });
-app.on('before-quit', () => { quitting = true; clearInterval(refreshTimer); discovery.stop(); scanner.stop(); shortcuts?.dispose(); savedControls?.dispose(); controller?.dispose(); });
+app.on('before-quit', () => { quitting = true; clearInterval(refreshTimer); discovery.stop(); scanner.stop(); shortcuts?.dispose(); savedControls?.dispose(); insights?.dispose(); controller?.dispose(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin' && !controller?.state.config.closeToTray) app.quit(); });
-module.exports = { getWindow: () => mainWindow, getController: () => controller, getShortcuts: () => shortcuts, getSavedControls: () => savedControls };
+module.exports = { getWindow: () => mainWindow, getController: () => controller, getShortcuts: () => shortcuts, getSavedControls: () => savedControls, getInsights: () => insights };

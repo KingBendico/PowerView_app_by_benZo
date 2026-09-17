@@ -31,6 +31,8 @@ Command/Ctrl+K opens search; arrow keys and Enter select a result. Ctrl+B and Ct
 
 **Home → Saved controls** lets you save named positions, build custom groups across rooms, and temporarily close selected shades before restoring their previous positions. Presets and groups can also have global shortcuts. Privacy timers start after closure is confirmed and require the app to stay running and the computer awake; a newer command, connection loss, sleep or quit cancels the restore. See [saved controls](docs/SAVED_CONTROLS.md) and the [review of your gateway API's capabilities](docs/API_CAPABILITIES.md).
 
+**Schedules** shows existing gateway routines by weekday, including clock times, sunrise/sunset offsets, paused entries and setup errors. **Health → Device health** collects battery ranges, power, reported signal, firmware and offline status; **Health → Activity** shows app commands, acceptance, gateway reports and failures for this app session. See [schedules, health and activity](docs/HOME_INSIGHTS.md).
+
 ## Verify and build
 
 ```sh
@@ -54,6 +56,6 @@ The generated document is ignored by Git because it may contain your gateway add
 
 Read the [revised assessment and feature roadmap](docs/EVALUATION.md) and [validation record](docs/VALIDATION.md). The earlier review of GitHub master described an older version; its missing-feature claims do not describe the newer local app.
 
-The UI and API paths have automated coverage for simulated standard and dual-rail shades, failures, live events, navigation and settings. Physical movement, firmware-specific battery fields and the wider set of shade mechanisms still need testing with actual devices. Gen 1/2 gateways are not supported by this release. No desktop scheduling or automatic glare control is included.
+The UI and API paths have automated coverage for simulated standard and dual-rail shades, failures, live events, navigation and settings. Physical movement, firmware-specific battery fields and the wider set of shade mechanisms still need testing with actual devices. Gen 1/2 gateways are not supported by this release. Gateway schedules can be viewed, but native schedule editing and automatic glare control are not included.
 
 The renderer is sandboxed, has no Node or gateway network access, and communicates through a restricted preload bridge. Icons are bundled locally. Dependencies are locked for repeatable installation.

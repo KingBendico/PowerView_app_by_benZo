@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="../assets/shade-controls.css">
     <link rel="stylesheet" href="../assets/shortcuts.css">
     <link rel="stylesheet" href="../assets/saved-controls.css">
+    <link rel="stylesheet" href="../assets/home-insights.css">
     <title>PowerView</title>
 </head>
 <body class="app-initial-load">
@@ -48,6 +49,8 @@
     <button id="btn-scenes">
         <i class="fa-solid fa-play"></i> Scenes
     </button>
+    <button id="btn-schedules"><i class="fas fa-calendar-days" aria-hidden="true"></i> Schedules</button>
+    <button id="btn-health"><i class="fas fa-heart-pulse" aria-hidden="true"></i> Health</button>
 </nav>
 
 <div class="command-search">
@@ -119,9 +122,9 @@
         <div class="info-help-body">
             <p class="info-help-lead">This app controls Hunter Douglas PowerView shades and scenes through your <b>primary gateway</b> on your home network.</p>
 
-            <h2 class="info-help-h2">Home</h2><p>Home brings whole-home controls, favorite scenes, pinned shades and room shortcuts together. Star a shade in Blinds to pin it. Single-shade presets use percent closed; dual-rail presets use the selected rail's percentage from the top. Reported values come from the gateway; command acceptance does not mean motion is complete.</p>
+            <h2 class="info-help-h2">Home</h2><p>Home brings whole-home controls, favorite scenes, pinned shades and room shortcuts together. Star a shade in Blinds to pin it. Single-shade presets use percent closed; dual-rail presets use the bottom edge’s percentage from the top. Reported values come from the gateway; command acceptance does not mean motion is complete.</p>
             <h2 class="info-help-h2">Blinds</h2>
-            <p>Pick a <b>room</b>, then adjust each shade. Rooms can be sorted by gateway order, A–Z, or recent. Drag to choose the dashed target, then release to move. The solid fabric follows movement; between gateway reports its position is marked approximate. The final report settles the graphic. For dual-rail shades, select <b>Top rail</b> or <b>Bottom rail</b> beneath the window. One labelled handle highlights that edge. Dragging, numeric entry, arrow keys, nudges and presets move the selected rail; selection alone sends no movement. Unavailable rails explain which rail to move first. <b>Open shade, Close shade and Stop</b> control the whole shade.</p>
+            <p>Pick a <b>room</b>, then adjust each shade. Rooms can be sorted by gateway order, A–Z, or recent. Drag to choose the dashed target, then release to move. The solid fabric follows movement; between gateway reports its position is marked approximate. The final report settles the graphic. For dual-rail shades, drag either circular edge handle directly. When the edges meet, pull up for the top edge or down for the bottom edge. Reversing a drag keeps the same edge. <b>Fine adjustment</b> contains independent numeric positions and bottom-edge nudges/presets. <b>Open shade, Close shade and Stop</b> control the whole shade.</p>
             <h2 class="info-help-h2">Appearance</h2>
             <p>Use the <b>palette icon</b> on a shade to choose blinds or curtains, fabric style and color. For curtains, choose a <b>center-opening pair</b> or a <b>single curtain opening to the left or right</b>. Curtains drag horizontally; blinds drag vertically. Choices are saved per device and home. Real two-rail devices keep both rails visible. Demo devices can switch to curtains and back; Reset restores their original controls and appearance.</p>
 
@@ -130,6 +133,8 @@
 
             <h2 class="info-help-h2">Scenes</h2>
             <p>Use <b>Scenes</b> in the navigation to run gateway scenes. Star favorites and use recent chips for quick access.</p>
+            <h2 class="info-help-h2">Schedules, health &amp; activity</h2>
+            <p><b>Schedules</b> shows your saved PowerView routines, with weekday and enabled/paused filters. Clock times stay as saved in your home; sunrise/sunset entries keep their relative offsets. Check highlighted setup errors in the PowerView mobile app, where schedules are managed. <b>Health</b> shows device availability, approximate battery ranges, power source, reported signal and firmware. Its <b>Activity</b> view separates app command acceptance from gateway reports and failures. It keeps up to 200 entries per home during this app session; quitting clears the history.</p>
             <h2 class="info-help-h2">Global keyboard shortcuts</h2>
             <p>Open <b>Settings → Keyboard shortcuts</b> to assign your own keys to any shade, a whole room, the whole home, or a scene. You can also show/hide PowerView or refresh its status. Shortcuts work while PowerView is running, even when another app is focused. Quitting releases them. They are saved separately for each gateway and the demo. Shortcuts pause while this editor is open; Save applies your changes. Percentage actions use <b>percent closed</b>.</p>
 
@@ -155,6 +160,7 @@
 <script src="../src/shared/shade-motion.js"></script>
 <script src="../src/shared/curtain-geometry.js"></script>
 <script src="../src/shared/shortcut-format.js"></script>
+<script src="../src/shared/home-insights.js"></script>
 <script src="../src/renderer/renderer.js"></script>
 <script src="../src/renderer/shade-appearance.js"></script>
 <script src="../src/renderer/shade-control.js"></script>
@@ -162,6 +168,7 @@
 <script src="../src/renderer/settings.js"></script>
 <script src="../src/renderer/shortcuts.js"></script>
 <script src="../src/renderer/saved-controls.js"></script>
+<script src="../src/renderer/home-insights.js"></script>
 <script src="../src/renderer/search.js"></script>
 </body>
 </html>

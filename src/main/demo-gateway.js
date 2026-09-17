@@ -1,6 +1,7 @@
 const { normalizeSnapshot, GatewayError } = require('./gateway-client');
 const { capabilitiesFor, validatePositions } = require('./capabilities');
 const { project } = require('../shared/shade-motion');
+const { normalizeAutomations } = require('../shared/home-insights');
 
 class DemoGateway {
   constructor({ now = Date.now, latency = 180, fullTravelMs = 8000, appearances = {} } = {}) {
@@ -24,6 +25,20 @@ class DemoGateway {
         { id: 105, ptName: 'Good night', roomIds: [1, 2, 3, 4] }],
       colors: { colors: ['#8c9c7a', '#c1a37c', '#9e92ad', '#829daa'] }, active: [],
     };
+    // Representative health and schedules; no scheduled demo action moves a shade.
+    for (const shade of this.data.shades) {
+      shade.powerType = [12, 21, 22].includes(shade.id) ? 12 : 2;
+      shade.signalStrength = shade.id === 13 ? -78 : -54;
+      shade.firmware = { revision: 3, subRevision: 0, build: 401 };
+    }
+    this.data.shades.find(shade => shade.id === 13).batteryStatus = 1;
+    this.automations = [
+      { id: 201, type: 10, enabled: true, days: 127, hour: 0, min: 15, sceneId: 101, errorShd_Ids: [] },
+      { id: 202, type: 0, enabled: true, days: 31, hour: 9, min: 0, sceneId: 104, errorShd_Ids: [] },
+      { id: 203, type: 14, enabled: true, days: 127, hour: 0, min: 45, sceneId: 102, errorShd_Ids: [13] },
+      { id: 204, type: 0, enabled: true, days: 127, hour: 22, min: 30, sceneId: 105, errorShd_Ids: [] },
+      { id: 205, type: 0, enabled: false, days: 96, hour: 20, min: 0, sceneId: 103, errorShd_Ids: [] },
+    ];
     this.originalShades = new Map(this.data.shades.map(shade => [String(shade.id), structuredClone(shade)]));
     this.railPositions = new Map();
     for (const [id, appearance] of Object.entries(appearances)) {
@@ -41,6 +56,8 @@ class DemoGateway {
     return snapshot;
   }
   async getSnapshot() { await this.wait(); return this.snapshot(); }
+  async getAutomations() { await this.wait(); return normalizeAutomations(this.automations); }
+  async getGatewayInfo() { await this.wait(); return { firmware: '3.1.0 · Demo' }; }
   appearanceChangesType(id, appearance) {
     const original = this.originalShades.get(id), shade = this.data.shades.find(item => String(item.id) === id);
     if (!original || !shade || capabilitiesFor(original).kind !== 'dual-rail') return false;

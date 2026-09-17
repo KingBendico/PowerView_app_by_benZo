@@ -46,10 +46,77 @@ async function run() {
     assert.equal(await js('document.getElementById("demoModeBar").hidden'), false);
     assert.equal(await js('document.getElementById("btn-home").getAttribute("aria-current")'), 'page');
   });
+  await check('schedule timeline filters weekdays and paused routines, shows setup errors and sends no movement', async () => {
+    await runtime.getInsights().refresh();
+    const before = runtime.getController().commandSequence;
+    await js('document.getElementById("btn-schedules").click()');
+    assert.equal(await js('document.getElementById("btn-schedules").getAttribute("aria-current")'), 'page');
+    assert.equal(await js('document.querySelectorAll(".schedule-row").length'), 4);
+    assert.match(await js('document.getElementById("scheduleTimeline").textContent'), /15m after sunrise/);
+    assert.match(await js('document.getElementById("scheduleTimeline").textContent'), /Not saved to: Street window/);
+    await js('document.querySelector(".schedule-days [data-day=\\"5\\"]").click()');
+    assert.equal(await js('document.querySelectorAll(".schedule-row").length'), 3);
+    assert.equal(await js('!!document.querySelector("[data-schedule-id=\\"202\\"]")'), false);
+    await js('document.getElementById("scheduleFilter").value="paused"; document.getElementById("scheduleFilter").dispatchEvent(new Event("change"))');
+    assert.equal(await js('document.querySelectorAll(".schedule-row").length'), 1);
+    assert.match(await js('document.getElementById("scheduleTimeline").textContent'), /Movie time.*Paused/);
+    await js('document.querySelector(".schedule-days [data-day=\\"-1\\"]").click(); document.getElementById("scheduleFilter").value="all"; document.getElementById("scheduleFilter").dispatchEvent(new Event("change"))');
+    assert.equal(runtime.getController().commandSequence, before);
+    win.showInactive(); await wait(120);
+    fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/schedules-light.png'),(await win.webContents.capturePage()).toPNG());
+  });
+  await check('health reports battery ranges, wired power and unknown values, and opens the correct room', async () => {
+    await js('document.getElementById("btn-health").click()');
+    assert.equal(await js('document.querySelector(".health-card").dataset.healthShade'), '13');
+    assert.match(await js('document.querySelector("[data-health-shade=\\"13\\"]").textContent'), /20% or less/);
+    assert.match(await js('document.querySelector("[data-health-shade=\\"21\\"]").textContent'), /Wired power/);
+    assert.match(await js('document.querySelector("[data-health-shade=\\"41\\"]").textContent'), /Not reported/);
+    await js('document.getElementById("healthFilter").value="attention"; document.getElementById("healthFilter").dispatchEvent(new Event("change"))');
+    assert.equal(await js('document.querySelectorAll(".health-card").length'), 1);
+    await js('document.querySelector(".health-card .text-action").click()');
+    assert.equal(await js('displayedRoomId'), '1');
+    await js('document.getElementById("btn-health").click(); document.getElementById("healthFilter").value="all"; document.getElementById("healthFilter").dispatchEvent(new Event("change"))');
+    await until(() => !runtime.getController().state.refreshing);
+    await wait(120); fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/health-light.png'),(await win.webContents.capturePage()).toPNG());
+  });
+  await check('activity separates accepted app commands from live position reports and supports issue filters', async () => {
+    await js('api.moveShade({id:"41",positions:{primary:55}})');
+    await until(() => !runtime.getController().state.motions['41']);
+    await js('document.querySelector("[data-health-tab=activity]").click()');
+    assert.match(await js('document.getElementById("activityList").textContent'), /This app · Accepted/);
+    assert.match(await js('document.getElementById("activityList").textContent'), /Position reported/);
+    assert.match(await js('document.getElementById("activityList").textContent'), /Gateway report · Reported/);
+    runtime.getController().applyEvent({evt:'shade-offline',id:22});
+    await js('document.getElementById("activityFilter").value="issues"; document.getElementById("activityFilter").dispatchEvent(new Event("change"))');
+    assert.match(await js('document.getElementById("activityList").textContent'), /Above the sink · Shade offline/);
+    runtime.getController().applyEvent({evt:'shade-online',id:22});
+    await js('document.getElementById("activityFilter").value="all"; document.getElementById("activityFilter").dispatchEvent(new Event("change"))');
+    await wait(120); fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/activity-light.png'),(await win.webContents.capturePage()).toPNG());
+  });
+  await check('schedule, health and activity views fit narrow dark windows and preserve focused filters during updates', async () => {
+    win.setSize(360,760); await js('api.setPrefs({...prefs,theme:"dark"})');
+    await js('document.getElementById("btn-schedules").click(); document.getElementById("scheduleFilter").focus()');
+    await js('api.refreshInsights()');
+    assert.equal(await js('document.activeElement.id'), 'scheduleFilter');
+    for (const view of ['schedules','health']) {
+      await js(`document.getElementById('btn-${view}').click()`);
+      if (view === 'health') await js('document.querySelector("[data-health-tab=devices]").click()');
+      await wait(150);
+      assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'),true);
+      fs.writeFileSync(path.resolve(__dirname,`../docs/screenshots/${view}-narrow.png`),(await win.webContents.capturePage()).toPNG());
+    }
+    await js('document.querySelector("[data-health-tab=activity]").click()');
+    assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'),true);
+    await js('document.querySelector("[data-health-tab=devices]").click(); api.setPrefs({...prefs,theme:"light"})');
+    // Keep the compositor active for the motion tests that follow. macOS may
+    // suspend animation frames after a previously visible window is hidden.
+    win.setSize(1080,860); win.showInactive();
+  });
   await check('25% preset means 25% closed and single-axis commands work', async () => {
     await js('document.getElementById("btn-blinds").click(); navigateToRoomShades(allRooms[0])');
     await js('document.getElementById("shade-name-11").closest("article").querySelector(".btn-fine-shade--chip").click()');
     await until(async () => await js('allShades.find(s=>s.id==="11").positions.primary') === .75);
+    await until(async () => await js('document.getElementById("shade-11-pct-closed").value') === '25');
     assert.equal(await js('document.getElementById("shade-11-pct-closed").value'), '25');
   });
   await check('precise numeric entry and reported state', async () => {
@@ -503,11 +570,21 @@ async function run() {
     win.setSize(1080,860);
   });
   let shortcutBindings;
+  const waitForVisibility = async visible => {
+    // macOS may coalesce show/hide notifications during rapid focus changes.
+    // Require the resulting native state to stay settled, rather than hanging
+    // on a notification that may already have been delivered.
+    let stableSince = null;
+    await until(() => {
+      if (win.isVisible() !== visible || !visible && win.isFocused()) { stableSince = null; return false; }
+      stableSince ??= Date.now(); return Date.now() - stableSince >= 200;
+    });
+  };
   const hideWindow = async () => {
-    if (win.isVisible()) await new Promise(resolve => { win.once('hide', resolve); win.hide(); });
+    win.hide(); await waitForVisibility(false);
   };
   const openShortcuts = async () => {
-    if (!win.isVisible()) await new Promise(resolve => { win.once('show', resolve); win.show(); });
+    if (!win.isVisible()) { win.show(); await waitForVisibility(true); }
     win.focus();
     await js('if (!uiOverlays.settingsIsOpen()) document.getElementById("settingsButton").click(); document.getElementById("keyboardShortcutsButton").click()');
     await until(() => js('!!document.querySelector("#keyboardShortcutsDialog[open]")'));
@@ -604,8 +681,7 @@ async function run() {
   await check('app shortcut shows PowerView and hiding its editor resumes native keys', async () => {
     const manager = runtime.getShortcuts(), binding = shortcutBindings.find(item => item.target === 'app');
     await hideWindow();
-    const shown = new Promise(resolve => win.once('show', resolve));
-    assert.equal(await manager.trigger(binding.id), true); await shown;
+    assert.equal(await manager.trigger(binding.id), true); await waitForVisibility(true);
     await openShortcuts(); assert.equal(manager.editing, true);
     await hideWindow(); await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
     assert.equal(manager.editing, false); assert.equal(globalShortcut.isRegistered('Control+Shift+C'), true);
@@ -613,12 +689,14 @@ async function run() {
   });
   const data = { rooms: [{ id: 1, ptName: '<b>Fixture room</b>', color: 0 }],
     shades: [{id:11,roomId:1,type:1,ptName:'Fixture shade',positions:{primary:.25}}],
-    scenes: [{id:101,ptName:'Fixture scene',roomIds:[1]}] };
-  let failure = false, delay = 0, received = [];
+    scenes: [{id:101,ptName:'Fixture scene',roomIds:[1]}],
+    automations: [{id:301,type:0,enabled:true,days:127,hour:12,min:0,sceneId:101,errorShd_Ids:[]}] };
+  let failure = false, scheduleFailure = false, delay = 0, received = [];
   const streams = new Set();
   server = http.createServer(async (req,res) => {
     const pathname = new URL(req.url,'http://localhost').pathname;
     if (pathname === '/home/events') { res.writeHead(200, {'Content-Type':'text/event-stream'}); res.write(': connected\n\n'); streams.add(res); res.on('close',()=>streams.delete(res)); return; }
+    if (pathname === '/home/automations' && scheduleFailure) { res.writeHead(503, {'Content-Type':'application/json'}); res.end('{"errMsg":"Unavailable"}'); return; }
     if (req.method === 'PUT') {
       let body=''; for await (const chunk of req) body+=chunk; received.push({path:req.url,body:body ? JSON.parse(body) : null});
       res.writeHead(failure ? 500 : 204); res.end(); return;
@@ -626,6 +704,7 @@ async function run() {
     if (delay) await wait(delay);
     const value = pathname === '/gateway' ? {config:{name:'Fixture',mgwConfig:{primary:true},mgwStatus:{running:true}}}
       : pathname === '/home/colors' ? {colors:['#cccccc']}
+      : pathname === '/gateway/info' ? {fwVersion:'3.1.475',serialNumber:'fixture-only'}
       : pathname === '/home/scenes/active' ? [] : data[pathname.split('/').at(-1)];
     res.writeHead(value ? 200 : 404, {'Content-Type':'application/json'}); res.end(JSON.stringify(value || {}));
   });
@@ -670,6 +749,24 @@ async function run() {
     const count=received.length;
     assert.equal(await js('api.activateScene("../gateway").then(()=>false,()=>true)'),true);
     assert.equal(received.length,count);
+  });
+  await check('optional schedule HTTP failures keep cached rows and live controls; empty lists are shown honestly', async () => {
+    await runtime.getInsights().refresh();
+    await js('document.getElementById("btn-schedules").click()');
+    assert.equal(await js('document.querySelectorAll(".schedule-row").length'),1);
+    assert.match(await js('document.getElementById("scheduleTimeline").textContent'),/Fixture scene/);
+    assert.doesNotMatch(await js('document.getElementById("scheduleTimeline").textContent'),/Morning light/);
+    const count=received.length;
+    scheduleFailure=true; await js('api.refreshInsights()');
+    assert.equal(await js('document.querySelectorAll(".schedule-row").length'),1);
+    assert.match(await js('document.getElementById("insightsNotice").textContent'),/HTTP 503.*Showing information/);
+    assert.equal(runtime.getController().state.connection.status,'connected');
+    scheduleFailure=false; data.automations=[]; await js('api.refreshInsights()');
+    assert.match(await js('document.getElementById("scheduleTimeline").textContent'),/No schedules saved/);
+    assert.equal(received.length,count);
+    await js('document.getElementById("btn-health").click(); document.querySelector("[data-health-tab=activity]").click()');
+    assert.match(await js('document.getElementById("activityList").textContent'),/This app · Failed/);
+    assert.doesNotMatch(await js('document.getElementById("activityList").textContent'),/Desk window/);
   });
   await check('captured native light/dark and narrow screenshots', async () => {
     // macOS can suspend the compositor after a shown window is hidden. Restore it for capture.
