@@ -19,6 +19,10 @@ Demo mode uses simulated devices and a separate settings profile. To connect you
 
 Home puts whole-home actions and favorite scenes above pinned shades, with room shortcuts below. Blinds opens the room grid; Scenes lists your gateway scenes. Search jumps to a room or shade, or runs a matching scene. Shade presets use **percent closed**, matching the number field. A command acknowledgment is separate from the reported position. Stop acts immediately without a confirmation dialog. Room/whole-home movement retains a confirmation and reports partial failures.
 
+Drag the dashed target to choose a position; release to send it. The solid fabric follows reported movement, with a smooth, explicitly approximate animation when the gateway supplies a travel time. The final position comes from the gateway. Demo mode simulates travel and lets you stop partway through. See [movement behavior and limits](docs/MOTION_AND_APPEARANCE.md).
+
+Use the **palette button** beside a shade's name to choose **shades/blinds or curtains**, fabric texture, and a preset or custom color. The editor previews your choice before saving it for that device and home. Curtains drag horizontally. Two-rail shades retain both rail controls and support texture/color customization. Appearance changes are local and do not move the device.
+
 Command/Ctrl+K opens search; arrow keys and Enter select a result. Ctrl+B and Ctrl+S switch views; Ctrl+1–9 open rooms in the selected order. Escape closes search or overlays, or returns from a room. Shade graphics support pointer interaction and keyboard adjustment. The tray runs favorite scenes through the same gateway connection, and Settings offers an optional close-to-tray preference.
 
 ## Verify and build

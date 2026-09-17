@@ -1,7 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { normalizeAddress } = require('./gateway-client');
-const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, roomSort: 'default', prefsMigrated: false });
+const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, roomSort: 'default', prefsMigrated: false });
+function cleanAppearance(value) {
+  if (!value || !['shade', 'curtain'].includes(value.kind) || !['pleated', 'roller', 'slatted'].includes(value.fabric)
+    || value.color !== null && !/^#[a-f0-9]{6}$/i.test(value.color)) throw new Error('Choose a valid shade style and fabric color.');
+  return { kind: value.kind, fabric: value.fabric, color: value.color };
+}
 function cleanConfig(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Invalid settings');
   const config = defaults();
@@ -23,6 +28,16 @@ function cleanConfig(raw) {
       if (host === '__proto__' || !favorites || typeof favorites !== 'object') continue;
       const list = key => Array.isArray(favorites[key]) ? [...new Set(favorites[key].filter(v => typeof v === 'string' && /^\d+$/.test(v)))].slice(0, 200) : [];
       config.favorites[host] = { shadeIds: list('shadeIds'), sceneIds: list('sceneIds') };
+    }
+  }
+  if (raw.appearances && typeof raw.appearances === 'object' && !Array.isArray(raw.appearances)) {
+    for (const [host, entries] of Object.entries(raw.appearances).slice(0, 100)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(host) || !entries || typeof entries !== 'object') continue;
+      config.appearances[host] = {};
+      for (const [id, appearance] of Object.entries(entries).slice(0, 500)) {
+        if (!/^\d+$/.test(id)) continue;
+        try { config.appearances[host][id] = cleanAppearance(appearance); } catch { /* Ignore one invalid visual preference. */ }
+      }
     }
   }
   return config;
@@ -55,4 +70,4 @@ class ConfigStore {
     return this.get();
   }
 }
-module.exports = { ConfigStore, cleanConfig, defaults };
+module.exports = { ConfigStore, cleanConfig, cleanAppearance, defaults };

@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('powerView', {
   moveShade: value => invoke('move-shade', value), shadeAction: value => invoke('shade-action', value),
   roomAction: value => invoke('room-action', value), activateScene: id => invoke('activate-scene', id),
   favorite: value => invoke('favorite', value),
+  setAppearance: value => invoke('shade-appearance', value),
   onState: callback => subscribe('state', callback), onNavigation: callback => subscribe('navigation', callback),
   onNotice: callback => subscribe('command-notice', callback), onProgress: callback => subscribe('scan-progress', callback),
 });

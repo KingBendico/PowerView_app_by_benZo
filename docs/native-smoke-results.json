@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-16T21:02:37.116Z",
+  "at": "2026-09-17T09:58:09.179Z",
   "electron": "44.4.1",
   "platform": "darwin",
   "arch": "arm64",
@@ -7,6 +7,11 @@
     "isolated renderer, working preload, Home and demo banner",
     "25% preset means 25% closed and single-axis commands work",
     "precise numeric entry and reported state",
+    "dragging keeps a stable target during refresh and cancellation sends no movement",
+    "released target stays put while the simulated shade moves monotonically and settles",
+    "Stop interrupts travel and holds the physical position",
+    "appearance editor saves curtain style and color without moving the device",
+    "curtain dragging uses horizontal targets and updates both fabric panels",
     "type 9 preserves dual controls and rail keyboard operation",
     "pinning a shade places its controls on Home",
     "scene activation refreshes reported active scenes",
@@ -16,6 +21,7 @@
     "command search opens a matching room and supports Command-K",
     "real IPC and HTTP failures retain reported positions; no extra axis",
     "live SSE updates the visual and reported position",
+    "gateway travel events animate between reports and final feedback settles precisely",
     "invalid target IDs are rejected at the main-process boundary",
     "captured native light/dark and narrow screenshots"
   ],

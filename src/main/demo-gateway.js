@@ -1,9 +1,11 @@
 const { normalizeSnapshot, GatewayError } = require('./gateway-client');
 const { validatePositions } = require('./capabilities');
+const { project } = require('../shared/shade-motion');
 
 class DemoGateway {
-  constructor() {
+  constructor({ now = Date.now, latency = 180, fullTravelMs = 8000 } = {}) {
     this.address = 'demo'; this.disposed = false;
+    this.now = now; this.latency = latency; this.fullTravelMs = fullTravelMs; this.motions = new Map();
     this.data = {
       rooms: [{ id: 1, ptName: 'Living room', color: 0 }, { id: 2, ptName: 'Kitchen', color: 1 },
         { id: 3, ptName: 'Bedroom', color: 2 }, { id: 4, ptName: 'Office', color: 3 }],
@@ -24,25 +26,56 @@ class DemoGateway {
     };
   }
   async wait() {
-    await new Promise(resolve => setTimeout(resolve, 180));
+    await new Promise(resolve => setTimeout(resolve, this.latency));
     if (this.disposed) throw new GatewayError('Connection changed.', 'CANCELLED');
   }
   async identify() { return { address: 'demo', name: 'Demo home', role: 'Demo' }; }
-  async getSnapshot() { await this.wait(); return normalizeSnapshot(structuredClone(this.data), this.address); }
+  async getSnapshot() { await this.wait(); this.sync(); return normalizeSnapshot(structuredClone(this.data), this.address); }
+  startEvents(onEvent, onStatus) { this.onEvent = onEvent; onStatus('open'); }
+  emit(evt, shade, extra = {}) {
+    if (!this.disposed) this.onEvent?.({ evt, id: shade.id, isoDate: new Date(this.now()).toISOString(),
+      currentPositions: { ...shade.positions }, ...extra });
+  }
+  sync() {
+    for (const [id, motion] of this.motions) {
+      const shade = this.data.shades.find(item => item.id === id);
+      Object.assign(shade.positions, project(motion, this.now()));
+    }
+  }
+  beginMotion(shade, values) {
+    this.sync(); clearTimeout(this.motions.get(shade.id)?.timer);
+    const from = { ...shade.positions }, target = { ...from, ...values };
+    const distance = Math.max(...Object.keys(values).map(axis => Math.abs(target[axis] - (from[axis] ?? target[axis]))));
+    const motion = { from, target, startedAt: this.now(), durationMs: Math.max(400, distance * this.fullTravelMs) };
+    this.motions.set(shade.id, motion);
+    this.emit('motion-started', shade, { targetPositions: { ...target, etaInSeconds: motion.durationMs / 1000 } });
+    motion.timer = setTimeout(() => {
+      if (this.disposed || this.motions.get(shade.id) !== motion) return;
+      Object.assign(shade.positions, target); this.motions.delete(shade.id); this.emit('motion-stopped', shade);
+    }, motion.durationMs);
+    motion.timer.unref?.();
+  }
   async setPositions(shade, positions) {
     const values = validatePositions(shade, positions); await this.wait();
-    Object.assign(this.data.shades.find(item => String(item.id) === shade.id).positions, values); this.data.active = [];
+    this.beginMotion(this.data.shades.find(item => String(item.id) === shade.id), values);
+    for (const scene of this.data.active) this.onEvent?.({ evt: 'scene-deactivated', id: scene.id });
+    this.data.active = [];
   }
-  async stopShade() { await this.wait(); }
+  async stopShade(id) {
+    await this.wait(); this.sync(); const shade = this.data.shades.find(item => String(item.id) === id);
+    clearTimeout(this.motions.get(shade.id)?.timer); this.motions.delete(shade.id); this.emit('motion-stopped', shade);
+  }
   async jogShade() { await this.wait(); }
   async activateScene(sceneId) {
     await this.wait(); const scene = this.data.scenes.find(item => String(item.id) === sceneId);
     for (const shade of this.data.shades.filter(item => scene.roomIds.includes(item.roomId))) {
-      shade.positions.primary = sceneId === '101' ? 1 : sceneId === '104' ? 0.4 : 0;
-      if ('secondary' in shade.positions) shade.positions.secondary = 0;
+      const target = { primary: sceneId === '101' ? 1 : sceneId === '104' ? 0.4 : 0 };
+      if ('secondary' in shade.positions) target.secondary = 0;
+      this.beginMotion(shade, target);
     }
     this.data.active = [{ id: sceneId }];
+    this.onEvent?.({ evt: 'scene-activated', id: sceneId });
   }
-  dispose() { this.disposed = true; }
+  dispose() { this.disposed = true; for (const motion of this.motions.values()) clearTimeout(motion.timer); this.motions.clear(); }
 }
 module.exports = { DemoGateway };

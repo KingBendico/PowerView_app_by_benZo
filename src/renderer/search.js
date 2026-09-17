@@ -33,5 +33,5 @@
         if(event.key==='Escape'){close();input.focus();}
     });
     document.addEventListener('pointerdown',event=>{if(!event.target.closest('.command-search'))close();});
-    document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'&&!uiOverlays.settingsIsOpen()&&!uiOverlays.infoIsOpen()){event.preventDefault();input.focus();input.select();}});
+    document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'&&!uiOverlays.settingsIsOpen()&&!uiOverlays.infoIsOpen()&&!document.querySelector('dialog[open]')){event.preventDefault();input.focus();input.select();}});
 })();

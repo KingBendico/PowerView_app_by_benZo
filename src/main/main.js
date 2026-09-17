@@ -192,6 +192,7 @@ function installHandlers() {
   handle('room-action', data => controller.roomAction({ roomId: data?.roomId == null ? null : String(data.roomId), action: data?.action }));
   handle('activate-scene', id => controller.activateScene(String(id)));
   handle('favorite', data => controller.toggleFavorite({ kind: data?.kind, id: String(data?.id) }));
+  handle('shade-appearance', data => controller.setAppearance({ id: String(data?.id), appearance: data?.appearance }));
   handle('validate-gateway', async address => {
     const client = new GatewayClient(address);
     try { const identity = await client.identify(); await client.getSnapshot(); return identity; } finally { client.dispose(); }

@@ -20,6 +20,7 @@ async function until(fn, timeout = 10000) {
 async function run() {
   await app.whenReady(); await until(() => runtime.getWindow());
   const win = runtime.getWindow();
+  win.webContents.setBackgroundThrottling(false);
   win.webContents.on('console-message', event => { if (event.level === 'error') { errors.push(event.message); console.error('RENDERER:', event.message); } });
   const js = code => win.webContents.executeJavaScript(code).catch(error => { console.error('FAILED SCRIPT:', code); throw error; });
   await until(() => js('typeof appState !== "undefined" && appState?.connection.status === "demo" && document.querySelectorAll("[data-shade-id]").length === 2').catch(() => false));
@@ -39,6 +40,66 @@ async function run() {
     await js('const input = document.getElementById("shade-11-pct-closed"); input.value="37"; input.dispatchEvent(new Event("change"))');
     await until(async () => await js('allShades.find(s=>s.id==="11").positions.primary') === .63);
     assert.match(await js('document.getElementById("shade-reported-11").textContent'), /37% closed/);
+  });
+  await check('dragging keeps a stable target during refresh and cancellation sends no movement', async () => {
+    await until(() => !runtime.getController().state.motions['11']);
+    await js(`window.dragWindow = document.querySelector('[data-shade-id="11"] .motion-window');
+      window.dragRect = dragWindow.getBoundingClientRect();
+      dragWindow.dispatchEvent(new PointerEvent('pointerdown',{pointerId:77,button:0,clientX:dragRect.left+30,clientY:dragRect.top+dragRect.height*.6,bubbles:true}));`);
+    assert.equal(await js('document.getElementById("shade-11-pct-closed").value'), '60');
+    await js('api.refresh()');
+    assert.equal(await js('document.getElementById("shade-11-pct-closed").value'), '60');
+    assert.ok(Math.abs(await js('Number(dragWindow.dataset.physicalPrimary)') - 37) < 1);
+    await js('document.dispatchEvent(new PointerEvent("pointercancel",{pointerId:77,bubbles:true}))');
+    assert.equal(runtime.getController().state.targets['11'], undefined);
+    assert.equal(await js('document.getElementById("shade-11-pct-closed").value'), '37');
+  });
+  await check('released target stays put while the simulated shade moves monotonically and settles', async () => {
+    await js(`dragWindow.dispatchEvent(new PointerEvent('pointerdown',{pointerId:78,button:0,clientX:dragRect.left+30,clientY:dragRect.top+dragRect.height*.7,bubbles:true}));
+      document.dispatchEvent(new PointerEvent('pointerup',{pointerId:78,clientX:dragRect.left+30,clientY:dragRect.top+dragRect.height*.7,bubbles:true}));`);
+    await until(() => runtime.getController().state.motions['11']);
+    const samples = [];
+    for (let i=0;i<5;i++) {
+      await wait(130); await js('api.setPrefs({...prefs})');
+      samples.push(await js('Number(dragWindow.dataset.physicalPrimary)'));
+      assert.equal(await js('document.getElementById("shade-11-pct-closed").value'), '70');
+    }
+    assert.ok(samples[0] > 37 && samples.at(-1) < 70);
+    for (let i=1;i<samples.length;i++) assert.ok(samples[i] >= samples[i-1] - .1, `Position reversed: ${samples}`);
+    const output=path.resolve(__dirname,'../docs/screenshots'); fs.mkdirSync(output,{recursive:true});
+    fs.writeFileSync(path.join(output,'shade-moving.png'),(await win.webContents.capturePage()).toPNG());
+    await until(() => !runtime.getController().state.motions['11']); await wait(220);
+    assert.equal(await js('Number(dragWindow.dataset.physicalPrimary)'), 70);
+    assert.equal(await js('dragWindow.querySelector(".target-primary").hidden'), true);
+  });
+  await check('Stop interrupts travel and holds the physical position', async () => {
+    await js('api.shadeAction({id:"11",action:"open"})');
+    await wait(450); await js('api.shadeAction({id:"11",action:"stop"})'); await wait(220);
+    const stopped = await js('Number(dragWindow.dataset.physicalPrimary)');
+    assert.ok(stopped > 0 && stopped < 70); await wait(300);
+    // REST reads round to whole percentages; there must be no continued travel.
+    assert.ok(Math.abs(await js('Number(dragWindow.dataset.physicalPrimary)') - stopped) < .51);
+    assert.equal(runtime.getController().state.motions['11'], undefined);
+  });
+  await check('appearance editor saves curtain style and color without moving the device', async () => {
+    const before = runtime.getController().state.snapshot.shades[0].positions.primary;
+    await js(`document.getElementById('shade-appearance-11').click(); document.querySelector('#shadeAppearanceDialog [value="curtain"]').click(); document.querySelector('#shadeAppearanceDialog [data-color="#b68471"]').click()`);
+    await js('document.querySelector("#shadeAppearanceDialog .appearance-save").click()');
+    await until(async () => !await js('!!document.querySelector("dialog[open]")'));
+    assert.deepEqual(runtime.getController().state.config.appearances.demo['11'],{kind:'curtain',fabric:'pleated',color:'#b68471'});
+    assert.equal(runtime.getController().state.snapshot.shades[0].positions.primary, before);
+    assert.equal(await js('document.querySelector("[data-shade-id=\\"11\\"] .motion-window").dataset.covering'), 'curtain');
+  });
+  await check('curtain dragging uses horizontal targets and updates both fabric panels', async () => {
+    await js(`window.curtainWindow = document.querySelector('[data-shade-id="11"] .motion-window');
+      window.curtainRect = curtainWindow.getBoundingClientRect();
+      curtainWindow.dispatchEvent(new PointerEvent('pointerdown',{pointerId:79,button:0,clientX:curtainRect.left+curtainRect.width*.27,clientY:curtainRect.top+50,bubbles:true}));
+      document.dispatchEvent(new PointerEvent('pointerup',{pointerId:79,clientX:curtainRect.left+curtainRect.width*.27,clientY:curtainRect.top+50,bubbles:true}));`);
+    await until(() => runtime.getController().state.motions['11']);
+    assert.equal(await js('document.getElementById("shade-11-pct-closed").value'), '50');
+    await until(() => !runtime.getController().state.motions['11']); await wait(220);
+    assert.equal(await js('curtainWindow.querySelector(".curtain-left").style.width'), '27%');
+    assert.equal(await js('curtainWindow.querySelector(".curtain-right").style.width'), '27%');
   });
   await check('type 9 preserves dual controls and rail keyboard operation', async () => {
     await js('navigateToRoomShades(allRooms.find(r=>r.id==="3"))');
@@ -126,6 +187,21 @@ async function run() {
     await until(async () => await js('allShades.find(s=>s.id==="11").positions.primary') === .9);
     assert.match(await js('document.getElementById("shade-reported-11").textContent'),/10% closed/);
   });
+  await check('gateway travel events animate between reports and final feedback settles precisely', async () => {
+    const send = event => { for (const res of streams) res.write('data: '+JSON.stringify(event)+'\n\n'); };
+    send({evt:'motion-started',id:11,currentPositions:{primary:.9},targetPositions:{primary:.3,etaInSeconds:1.5}});
+    await until(() => runtime.getController().state.motions['11']);
+    await wait(350);
+    const midway = await js('Number(document.querySelector(".motion-window").dataset.physicalPrimary)');
+    assert.ok(midway > 10 && midway < 70);
+    await js('api.refresh()');
+    const afterRefresh = await js('Number(document.querySelector(".motion-window").dataset.physicalPrimary)');
+    assert.ok(afterRefresh >= midway, 'A cached read pulled the moving graphic backwards');
+    assert.equal(runtime.getController().state.snapshot.shades[0].positions.primary, 90);
+    send({evt:'motion-stopped',id:11,currentPositions:{primary:.3}});
+    await until(() => !runtime.getController().state.motions['11']); await wait(240);
+    assert.equal(await js('Number(document.querySelector(".motion-window").dataset.physicalPrimary)'), 70);
+  });
   await check('invalid target IDs are rejected at the main-process boundary', async () => {
     const count=received.length;
     assert.equal(await js('api.activateScene("../gateway").then(()=>false,()=>true)'),true);
@@ -140,6 +216,9 @@ async function run() {
     await js('api.setPrefs({...prefs,theme:"dark"})');
     await js('navigateToRoomShades(allRooms[0])');
     await wait(250); fs.writeFileSync(path.join(output,'room-dark.png'),(await win.webContents.capturePage()).toPNG());
+    await js('document.getElementById("shade-appearance-11").click()');
+    await wait(100); fs.writeFileSync(path.join(output,'appearance-editor.png'),(await win.webContents.capturePage()).toPNG());
+    await js('document.getElementById("shadeAppearanceDialog").close()');
     win.setSize(360,760); await wait(250); fs.writeFileSync(path.join(output,'room-narrow.png'),(await win.webContents.capturePage()).toPNG());
   });
   assert.deepEqual(errors, [], `Renderer errors: ${errors.join('\n')}`);

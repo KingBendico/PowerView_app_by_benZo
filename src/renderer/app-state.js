@@ -27,6 +27,7 @@ function updateNavigation() {
 function applyState(state) {
     const previousAddress = appState?.connection.address;
     const previousFavorites = JSON.stringify(appState?.favorites);
+    const previousAppearances = JSON.stringify(appState?.config.appearances);
     appState = state;
     if (previousAddress !== state.connection.address) {
         const search = document.getElementById('homeSearch'); if (search) { search.value = ''; search.setAttribute('aria-expanded', 'false'); }
@@ -65,19 +66,22 @@ function applyState(state) {
     const structuralChange = signature !== renderedSignature;
     renderedSignature = signature;
     if (!initialShellRevealDone || previousAddress !== state.connection.address) { currentMainView = 'home'; renderCurrentView(); }
-    else if (structuralChange || (currentMainView === 'home' && previousFavorites !== JSON.stringify(state.favorites))) renderCurrentView();
+    else if (structuralChange || previousAppearances !== JSON.stringify(state.config.appearances)
+        || (currentMainView === 'home' && previousFavorites !== JSON.stringify(state.favorites))) renderCurrentView();
     for (const shade of allShades) {
         const tile = document.querySelector(`[data-shade-id="${shade.id}"]`);
-        const editing = tile?.contains(document.activeElement) && document.activeElement?.tagName === 'INPUT';
-        if (!editing && !tile?.querySelector('.shade-window-dragging')) liveShadeTileRefs.get(shade.id)?.();
+        liveShadeTileRefs.get(shade.id)?.();
         for (const input of tile?.querySelectorAll('[data-axis]') || []) {
             if (input !== document.activeElement) input.value = shade.positions[input.dataset.axis] == null ? '' : String(Math.round(shade.positions[input.dataset.axis] * 100));
         }
         const reported = document.getElementById(`shade-reported-${shade.id}`);
-        if (reported) reported.textContent = reportedText(shade);
+        if (reported) reported.textContent = state.motions?.[shade.id] ? reportedText(shade).replace('Reported:', 'Last report:') : reportedText(shade);
         const feedback = state.feedback[`shade:${shade.id}`] || state.feedback[`stop:${shade.id}`];
         const statusEl = document.getElementById(`shade-status-${shade.id}`);
-        if (statusEl && feedback) { statusEl.textContent = feedback.message; statusEl.className = `shade-command-status ${feedback.kind === 'error' ? 'is-error' : feedback.kind === 'pending' ? 'is-pending' : 'is-ok'}`; }
+        if (statusEl && feedback) {
+            statusEl.textContent = feedback.kind === 'moving' ? '' : feedback.message;
+            statusEl.className = `shade-command-status ${feedback.kind === 'error' ? 'is-error' : feedback.kind === 'pending' ? 'is-pending' : 'is-ok'}`;
+        }
         updateShadeBadgeInDomIfAny(shade.id); updateShadeBatteryRowInDom(shade.id);
         const star = tile?.querySelector('.scene-star');
         if (star) { star.classList.toggle('is-favorite', state.favorites.shadeIds.includes(shade.id)); star.setAttribute('aria-pressed', String(state.favorites.shadeIds.includes(shade.id))); }
@@ -124,7 +128,7 @@ function updateCommandAvailability() {
             control.disabled = !isConnected() || (control.dataset.action !== 'stop' && (pending || !shade.available));
         }
         for (const visual of tile.querySelectorAll('[role="slider"]')) {
-            const disabled = !isConnected() || !shade.available;
+            const disabled = !isConnected() || !shade.available || pending;
             visual.setAttribute('aria-disabled', String(disabled)); visual.tabIndex = disabled ? -1 : 0;
         }
     }
@@ -229,7 +233,7 @@ async function bootstrap() {
     api.onState(applyState); api.onNotice(showSceneRunToast);
     api.onNavigation(action => {
         if (action === 'settings' && !uiOverlays.settingsIsOpen()) document.getElementById('settingsButton').click();
-        else if (action?.roomIndex != null) openRoomByGridIndex(action.roomIndex);
+        else if (action?.roomIndex != null && !document.querySelector('dialog[open]')) openRoomByGridIndex(action.roomIndex);
     });
     document.getElementById('btn-home').addEventListener('click', showHome);
     document.getElementById('exitDemoButton').addEventListener('click', () => api.demo(false).catch(error => showSceneRunToast(error.message)));
