@@ -2,7 +2,7 @@
 
 The shade card separates the chosen destination from the device's movement. Dragging moves a dashed target and updates the target percentage. Releasing sends one command. Refreshes leave an active drag alone; cancelling a gesture sends nothing. Numeric entry and keyboard controls choose the same target. The solid fabric represents the latest reported position or clearly labeled estimated progress, so it no longer snaps to the destination and back to an older report.
 
-Every visual control has a visible grip at its moving edge, including fully open and closed shades. Dual-rail grips are offset sideways so both remain reachable when the rails meet. Curtains have vertical grips on their opening edges: two for a pair, one for a single-draw curtain. Grips follow the displayed physical position; dragging still sets the separate dashed target. Grabbing an inset grip preserves the starting position instead of jumping to the pointer location. The whole illustration remains draggable, with keyboard controls on the shade or each dual rail.
+Every visual control has a visible grip at its moving edge, including fully open and closed shades. Dual-rail grips line up at the center; they separate sideways only when their hit areas would overlap near meeting rails. Curtains have vertical grips on their opening edges: two for a pair, one for a single-draw curtain. Grips follow the displayed physical position; dragging still sets the separate dashed target. Grabbing an inset grip preserves the starting position instead of jumping to the pointer location. The whole illustration remains draggable, with keyboard controls on the shade or each dual rail.
 
 ## Movement feedback
 

@@ -89,6 +89,12 @@ function createLiveShadeControl(shade, statusEl) {
         inner.classList.toggle('position-unreported', !valid);
         if (valid) {
             const p = clamp(values.primary), s = dual ? Math.min(p, clamp(values.secondary)) : 0;
+            if (dual) {
+                const height = inner.clientHeight;
+                const gripY = percent => Math.max(11, Math.min(height - 11, height * percent / 100));
+                // Center both grips unless their hit areas would overlap.
+                inner.classList.toggle('rails-touching', height > 0 && gripY(p) - gripY(s) < 22);
+            }
             fabric.style.top = `${s}%`; fabric.style.height = `${Math.max(0, p - s)}%`;
             const panels = curtainGeometry.panels(p, curtainDraw);
             leftCurtain.style.width = `${panels.left}%`; rightCurtain.style.width = `${panels.right}%`;
