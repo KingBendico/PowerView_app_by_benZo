@@ -25,6 +25,8 @@ Use the **palette button** beside a shade's name to choose **shades/blinds or cu
 
 Command/Ctrl+K opens search; arrow keys and Enter select a result. Ctrl+B and Ctrl+S switch views; Ctrl+1–9 open rooms in the selected order. Escape closes search or overlays, or returns from a room. Shade graphics support pointer interaction and keyboard adjustment. The tray runs favorite scenes through the same gateway connection, and Settings offers an optional close-to-tray preference.
 
+**Settings → Keyboard shortcuts** adds custom, system-wide keys for individual shades, rooms, the whole home, gateway scenes, showing/hiding PowerView and refreshing status. They work while PowerView is running, including in the background. The starter assigns Ctrl+Shift+C/O/H to Close/Open/50% closed for your chosen shade; every combination and percentage is editable. Room and whole-home shortcuts run immediately. Conflicts are checked before saving; recording pauses shortcuts, and each home/demo has separate bindings. See [shortcut setup and behavior](docs/SHORTCUTS.md).
+
 ## Verify and build
 
 ```sh

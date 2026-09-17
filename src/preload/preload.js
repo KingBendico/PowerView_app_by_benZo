@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('powerView', {
   roomAction: value => invoke('room-action', value), activateScene: id => invoke('activate-scene', id),
   favorite: value => invoke('favorite', value),
   setAppearance: value => invoke('shade-appearance', value),
+  getShortcuts: () => invoke('get-shortcuts'), saveShortcuts: value => invoke('save-shortcuts', value),
+  setShortcutsEditing: enabled => invoke('edit-shortcuts', enabled), onShortcuts: callback => subscribe('shortcuts-state', callback),
   onState: callback => subscribe('state', callback), onNavigation: callback => subscribe('navigation', callback),
   onNotice: callback => subscribe('command-notice', callback), onProgress: callback => subscribe('scan-progress', callback),
 });

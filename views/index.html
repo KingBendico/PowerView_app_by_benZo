@@ -9,6 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../assets/style.css">
     <link rel="stylesheet" href="../assets/desktop.css">
     <link rel="stylesheet" href="../assets/shade-controls.css">
+    <link rel="stylesheet" href="../assets/shortcuts.css">
     <title>PowerView</title>
 </head>
 <body class="app-initial-load">
@@ -91,6 +92,7 @@
                     <button type="button" id="cancelButton" class="btn-ghost">Cancel</button>
                 </div>
                 <label class="tray-preference"><input type="checkbox" id="closeToTray"> Keep PowerView in the tray when closing the window</label>
+                <button type="button" id="keyboardShortcutsButton" class="shortcut-settings-link" aria-haspopup="dialog"><i class="fas fa-keyboard" aria-hidden="true"></i><span><strong>Keyboard shortcuts</strong><small>Control your home from any app</small></span><span aria-hidden="true">→</span></button>
                 <label for="networkInterface">Network for subnet scan</label><select id="networkInterface"></select>
                 <button id="stopScanButton" type="button" class="btn-secondary" hidden>Stop discovery</button>
                 <div id="messages" role="status" aria-live="polite"></div>
@@ -124,6 +126,8 @@
 
             <h2 class="info-help-h2">Scenes</h2>
             <p>Use <b>Scenes</b> in the navigation to run gateway scenes. Star favorites and use recent chips for quick access.</p>
+            <h2 class="info-help-h2">Global keyboard shortcuts</h2>
+            <p>Open <b>Settings → Keyboard shortcuts</b> to assign your own keys to any shade, a whole room, the whole home, or a scene. You can also show/hide PowerView or refresh its status. Shortcuts work while PowerView is running, even when another app is focused. Quitting releases them. They are saved separately for each gateway and the demo. Shortcuts pause while this editor is open; Save applies your changes. Percentage actions use <b>percent closed</b>.</p>
 
             <h2 class="info-help-h2">Connection &amp; settings</h2>
             <p>Set the primary gateway <b>address</b> under the gear icon (settings opens in this window). Use <b>Test connection</b> or <b>Open Swagger UI</b> if you need to check the hub — Swagger on port <b>3002</b> lists every REST path (scenes, shades, rooms, automation, and more) and is the best place to discover new capabilities. A yellow bar means the app cannot reach the gateway (wrong IP, hub offline, or network issue).</p>
@@ -146,11 +150,13 @@
 
 <script src="../src/shared/shade-motion.js"></script>
 <script src="../src/shared/curtain-geometry.js"></script>
+<script src="../src/shared/shortcut-format.js"></script>
 <script src="../src/renderer/renderer.js"></script>
 <script src="../src/renderer/shade-appearance.js"></script>
 <script src="../src/renderer/shade-control.js"></script>
 <script src="../src/renderer/app-state.js"></script>
 <script src="../src/renderer/settings.js"></script>
+<script src="../src/renderer/shortcuts.js"></script>
 <script src="../src/renderer/search.js"></script>
 </body>
 </html>

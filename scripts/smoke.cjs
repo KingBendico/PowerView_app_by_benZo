@@ -1,5 +1,5 @@
 // Native Electron integration test. Uses an isolated profile, demo data and a loopback fixture only.
-const { app } = require('electron');
+const { app, globalShortcut } = require('electron');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -25,7 +25,11 @@ async function run() {
   const js = code => win.webContents.executeJavaScript(code).catch(error => { console.error('FAILED SCRIPT:', code); throw error; });
   await until(() => js('typeof appState !== "undefined" && appState?.connection.status === "demo" && document.querySelectorAll("[data-shade-id]").length === 2').catch(() => false));
   async function check(name, fn) {
-    try { await fn(); checks.push(name); console.log(`PASS ${name}`); }
+    let deadline;
+    try {
+      await Promise.race([fn(), new Promise((_resolve,reject) => { deadline = setTimeout(() => reject(new Error(`Check timed out: ${name}`)),45000); })]);
+      checks.push(name); console.log(`PASS ${name}`);
+    }
     catch (error) {
       console.error('UI STATE:', await js(`(() => { const dialog = document.querySelector('dialog[open]'); return dialog ? {
         error: dialog.querySelector('[role=alert]')?.textContent,
@@ -35,6 +39,7 @@ async function run() {
       } : null; })()`));
       throw error;
     }
+    finally { clearTimeout(deadline); }
   }
   await check('isolated renderer, working preload, Home and demo banner', async () => {
     assert.deepEqual(await js('[typeof require, typeof process, typeof window.powerView.moveShade]'), ['undefined', 'undefined', 'function']);
@@ -208,6 +213,106 @@ async function run() {
     assert.equal(await js('displayedRoomId'), '3');
     assert.equal(await js('document.getElementById("searchResults").hidden'), true);
   });
+  let shortcutBindings;
+  const openShortcuts = async () => {
+    await js('if (!uiOverlays.settingsIsOpen()) document.getElementById("settingsButton").click(); document.getElementById("keyboardShortcutsButton").click()');
+    await until(() => js('!!document.querySelector("#keyboardShortcutsDialog[open]")'));
+  };
+  const closeShortcuts = async () => {
+    await js('document.querySelector("#keyboardShortcutsDialog .shortcuts-cancel").click()');
+    await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
+  };
+  await check('shortcut editor adds the Office starter, detects duplicates and records native key input', async () => {
+    await js('api.setPrefs({...prefs,theme:"light"})'); await openShortcuts();
+    assert.equal(runtime.getShortcuts().editing, true);
+    assert.equal(await js('document.getElementById("shortcutStarterShade").value'), '41');
+    await js('document.getElementById("shortcutAddEssentials").click()');
+    assert.equal(await js('document.querySelectorAll(".shortcut-row").length'), 3);
+    await js('document.querySelectorAll(".shortcut-record")[2].click()');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'C', modifiers: ['control','shift'] });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'C', modifiers: ['control','shift'] });
+    await until(() => js('document.querySelectorAll(".shortcut-record")[2].textContent.includes("Ctrl + Shift + C")'));
+    await js('document.querySelector(".shortcuts-save").click()');
+    await until(() => js('document.querySelector(".shortcuts-error").textContent.includes("more than once")'));
+    assert.deepEqual(runtime.getShortcuts().settings().bindings, []);
+    await js('document.querySelectorAll(".shortcut-record")[2].click()');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'H', modifiers: ['control','shift'] });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'H', modifiers: ['control','shift'] });
+    await until(() => js('document.querySelectorAll(".shortcut-record")[2].textContent.includes("Ctrl + Shift + H")'));
+    await js('document.querySelector(".shortcuts-scroll").scrollTop=0; document.activeElement.blur()');
+    await wait(250); fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/shortcut-editor.png'),(await win.webContents.capturePage()).toPNG());
+    await js('document.querySelector(".shortcuts-save").click()');
+    await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
+    shortcutBindings = runtime.getShortcuts().settings().bindings;
+    assert.deepEqual(shortcutBindings.map(item => [item.targetId,item.action,item.percent]), [['41','close',undefined],['41','open',undefined],['41','position',50]]);
+    for (const binding of shortcutBindings) assert.equal(globalShortcut.isRegistered(binding.accelerator), true);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(profile,'config.json'),'utf8')).shortcuts.demo.bindings, shortcutBindings);
+  });
+  await check('native registration conflicts preserve saved shortcuts; Cancel resumes and mobile layout fits', async () => {
+    await openShortcuts();
+    assert.equal(globalShortcut.isRegistered('Control+Shift+C'), false);
+    assert.equal(globalShortcut.register('Control+Alt+Shift+F18', () => {}), true);
+    await js('document.querySelector(".shortcut-record").click()');
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'F18', modifiers: ['control','alt','shift'] });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'F18', modifiers: ['control','alt','shift'] });
+    await until(() => js('document.querySelector(".shortcut-record").textContent.includes("F18")'));
+    await js('document.querySelector(".shortcuts-save").click()');
+    await until(() => js('document.querySelector(".shortcuts-error").textContent.includes("unavailable")'));
+    assert.deepEqual(runtime.getShortcuts().settings().bindings, shortcutBindings);
+    globalShortcut.unregister('Control+Alt+Shift+F18');
+    win.setSize(360,760); await wait(200);
+    assert.equal(await js('document.querySelector(".shortcuts-scroll").scrollWidth <= document.querySelector(".shortcuts-scroll").clientWidth'), true);
+    assert.equal(await js('document.querySelector(".shortcuts-save").getBoundingClientRect().bottom < window.innerHeight'), true);
+    fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/shortcut-narrow.png'),(await win.webContents.capturePage()).toPNG());
+    await closeShortcuts(); win.setSize(1080,860);
+    assert.equal(globalShortcut.isRegistered('Control+Shift+C'), true);
+  });
+  await check('background shortcut routing moves demo shades and settles at the requested percentage', async () => {
+    await js('uiOverlays.settingsClose(); navigateToRoomShades(allRooms.find(room=>room.id==="4"))');
+    assert.equal(win.isFocused(), false);
+    assert.equal(await runtime.getShortcuts().trigger(shortcutBindings[2].id), true);
+    await until(() => !runtime.getController().state.motions['41']);
+    assert.equal(runtime.getController().state.snapshot.shades.find(item=>item.id==='41').positions.primary, 50);
+    assert.match(runtime.getShortcuts().lastRun.message, /50% closed — command accepted/);
+  });
+  await check('room, scene, whole-home Stop and app shortcuts can be configured in the editor', async () => {
+    await openShortcuts();
+    await js('document.getElementById("shortcutAddStop").click(); document.getElementById("shortcutAddApp").click(); document.getElementById("shortcutAdd").click()');
+    await js('document.querySelector(".shortcut-row:last-child .shortcut-target").value="scene:104"; document.querySelector(".shortcut-row:last-child .shortcut-target").dispatchEvent(new Event("change")); document.querySelector(".shortcut-row:last-child .shortcut-record").click()');
+    win.webContents.sendInputEvent({ type:'keyDown', keyCode:'F15', modifiers:['control','alt','shift'] });
+    win.webContents.sendInputEvent({ type:'keyUp', keyCode:'F15', modifiers:['control','alt','shift'] });
+    await until(() => js('document.querySelector(".shortcut-row:last-child .shortcut-record").textContent.includes("F15")'));
+    await js('document.getElementById("shortcutAdd").click(); document.querySelector(".shortcut-row:last-child .shortcut-target").value="room:2"; document.querySelector(".shortcut-row:last-child .shortcut-target").dispatchEvent(new Event("change")); document.querySelector(".shortcut-row:last-child .shortcut-action").value="close"; document.querySelector(".shortcut-row:last-child .shortcut-action").dispatchEvent(new Event("change")); document.querySelector(".shortcut-row:last-child .shortcut-record").click()');
+    win.webContents.sendInputEvent({ type:'keyDown', keyCode:'F16', modifiers:['control','alt','shift'] });
+    win.webContents.sendInputEvent({ type:'keyUp', keyCode:'F16', modifiers:['control','alt','shift'] });
+    await until(() => js('document.querySelector(".shortcut-row:last-child .shortcut-record").textContent.includes("F16")'));
+    await js('document.querySelector(".shortcuts-save").click()'); await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
+    const manager = runtime.getShortcuts(); shortcutBindings = manager.settings().bindings;
+    assert.equal(shortcutBindings.length, 7);
+    for (const target of ['scene','room','home']) assert.equal(await manager.trigger(shortcutBindings.find(item=>item.target===target).id), true);
+    assert.equal(runtime.getController().state.feedback['scene:104'].kind, 'success');
+    assert.equal(runtime.getController().state.feedback['room:2'].kind, 'success');
+    assert.equal(runtime.getController().state.feedback['room-stop:null'].kind, 'success');
+    assert.deepEqual(runtime.getController().state.motions, {});
+  });
+  await check('disabling shortcuts releases native registrations and editor cancellation restores focus', async () => {
+    await openShortcuts(); await js('document.getElementById("shortcutsEnabled").click(); document.querySelector(".shortcuts-save").click()');
+    await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
+    for (const binding of shortcutBindings) assert.equal(globalShortcut.isRegistered(binding.accelerator), false);
+    await openShortcuts(); await js('document.getElementById("shortcutsEnabled").click(); document.querySelector(".shortcuts-save").click()');
+    await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
+    for (const binding of shortcutBindings) assert.equal(globalShortcut.isRegistered(binding.accelerator), true);
+    assert.equal(await js('document.activeElement.id'), 'keyboardShortcutsButton');
+    await js('uiOverlays.settingsClose()');
+  });
+  await check('app shortcut shows PowerView and hiding its editor resumes native keys', async () => {
+    const manager = runtime.getShortcuts(), binding = shortcutBindings.find(item => item.target === 'app');
+    assert.equal(await manager.trigger(binding.id), true); await until(() => win.isVisible());
+    await openShortcuts(); assert.equal(manager.editing, true);
+    win.hide(); await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
+    assert.equal(manager.editing, false); assert.equal(globalShortcut.isRegistered('Control+Shift+C'), true);
+    await js('uiOverlays.settingsClose()');
+  });
   const data = { rooms: [{ id: 1, ptName: '<b>Fixture room</b>', color: 0 }],
     shades: [{id:11,roomId:1,type:1,ptName:'Fixture shade',positions:{primary:.25}}],
     scenes: [{id:101,ptName:'Fixture scene',roomIds:[1]}] };
@@ -230,6 +335,7 @@ async function run() {
   const address=`127.0.0.1:${server.address().port}`;
   await check('real IPC and HTTP failures retain reported positions; no extra axis', async () => {
     await js(`api.connect(${JSON.stringify(address)})`);
+    for (const binding of shortcutBindings) assert.equal(globalShortcut.isRegistered(binding.accelerator), false);
     await js('navigateToRoomShades(allRooms[0])'); await until(() => !runtime.getController().state.refreshing);
     failure=true;
     await js('updateShadePosition("11",10,0,()=>{})');
@@ -268,6 +374,8 @@ async function run() {
     assert.equal(received.length,count);
   });
   await check('captured native light/dark and narrow screenshots', async () => {
+    // macOS can suspend the compositor after a shown window is hidden. Restore it for capture.
+    win.showInactive();
     await js('api.demo(true)'); await until(async () => await js('appState.connection.status') === 'demo');
     await js('api.setPrefs({...prefs,theme:"light"})');
     await js('currentMainView="home"; showHome(); document.activeElement.blur(); window.scrollTo(0,0); clearTimeout(showSceneRunToast._hideTimer); document.getElementById("sceneRunToast")?.classList.remove("is-visible")');

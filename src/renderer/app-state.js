@@ -248,7 +248,7 @@ const basePushModal = pushModalScrollLock, basePopModal = popModalScrollLock;
 pushModalScrollLock = () => { basePushModal(); for (const el of document.querySelectorAll('#content,.bottom-nav,.top-buttons,.command-search,#connectionHealthBar,#demoModeBar')) el.inert = true; };
 popModalScrollLock = () => { basePopModal(); if (!modalScrollLock.depth) for (const el of document.querySelectorAll('[inert]')) el.inert = false; };
 document.addEventListener('keydown', event => {
-    if (event.key !== 'Tab') return;
+    if (event.key !== 'Tab' || document.querySelector('dialog[open]')) return;
     const modal = uiOverlays.settingsIsOpen() ? document.getElementById('settingsOverlay') : uiOverlays.infoIsOpen() ? document.getElementById('infoHelpOverlay') : null;
     if (!modal) return;
     const items = [...modal.querySelectorAll('button,input,select,summary,a[href]')].filter(el => !el.disabled && el.checkVisibility()

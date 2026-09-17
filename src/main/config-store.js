@@ -1,7 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { normalizeAddress } = require('./gateway-client');
-const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, roomSort: 'default', prefsMigrated: false });
+const { cleanSettings: cleanShortcutSettings } = require('../shared/shortcut-format');
+const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, shortcuts: {}, roomSort: 'default', prefsMigrated: false });
 function cleanAppearance(value) {
   if (!value || !['shade', 'curtain'].includes(value.kind) || !['pleated', 'roller', 'slatted'].includes(value.fabric)
     || value.color !== null && !/^#[a-f0-9]{6}$/i.test(value.color)
@@ -39,6 +40,12 @@ function cleanConfig(raw) {
         if (!/^\d+$/.test(id)) continue;
         try { config.appearances[host][id] = cleanAppearance(appearance); } catch { /* Ignore one invalid visual preference. */ }
       }
+    }
+  }
+  if (raw.shortcuts && typeof raw.shortcuts === 'object' && !Array.isArray(raw.shortcuts)) {
+    for (const [host, settings] of Object.entries(raw.shortcuts).slice(0, 100)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(host)) continue;
+      try { config.shortcuts[host] = cleanShortcutSettings(settings); } catch { /* Invalid bindings must never become global commands. */ }
     }
   }
   return config;

@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, session, globalShortcut } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const { isIP } = require('node:net');
 const { ConfigStore } = require('./config-store');
 const { Controller } = require('./controller');
+const { Shortcuts } = require('./shortcuts');
 const { GatewayClient, normalizeAddress } = require('./gateway-client');
 const { Discovery } = require('./discovery');
 const { NetworkScan, interfaces } = require('./network-scan');
@@ -14,7 +15,7 @@ const mainUrl = pathToFileURL(path.join(basePath, 'views/index.html')).href;
 const dataArg = process.argv.find(value => value.startsWith('--data-dir='));
 if (dataArg) app.setPath('userData', path.resolve(dataArg.slice(11)));
 else if (process.argv.includes('--demo')) app.setPath('userData', path.join(app.getPath('userData'), 'demo-profile'));
-let mainWindow, tray, controller, store, refreshTimer, quitting = false;
+let mainWindow, tray, controller, store, shortcuts, refreshTimer, quitting = false;
 const discovery = new Discovery();
 const scanner = new NetworkScan();
 function send(channel, payload) {
@@ -59,6 +60,13 @@ function showWindow(action) {
     mainWindow.show(); mainWindow.focus(); if (action) send('navigation', action);
   }
 }
+function finishShortcutEditing() {
+  if (!shortcuts?.editing) return;
+  shortcuts.setEditing(false);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.setIgnoreMenuShortcuts(false); send('navigation', 'close-shortcuts');
+  }
+}
 function runTrayScene(id) {
   controller.activateScene(id).then(() => send('command-notice', 'Scene command accepted.'))
     .catch(error => { showWindow(); send('command-notice', error.message); });
@@ -91,13 +99,17 @@ function createMainWindow() {
   mainWindow.webContents.on('will-navigate', event => event.preventDefault());
   mainWindow.webContents.on('will-attach-webview', event => event.preventDefault());
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || !input.control || input.meta || input.alt || input.isAutoRepeat) return;
+    if (shortcuts?.editing || input.type !== 'keyDown' || !input.control || input.meta || input.alt || input.shift || input.isAutoRepeat) return;
     const digit = /^(?:Digit|Numpad)([1-9])$/.exec(input.code || '')?.[1] || (/^[1-9]$/.test(input.key) ? input.key : null);
     if (digit) { event.preventDefault(); send('navigation', { roomIndex: Number(digit) - 1 }); }
   });
   mainWindow.on('close', event => {
+    finishShortcutEditing();
     if (!quitting && tray && controller.state.config.closeToTray) { event.preventDefault(); mainWindow.hide(); }
   });
+  mainWindow.on('hide', finishShortcutEditing);
+  mainWindow.webContents.on('render-process-gone', finishShortcutEditing);
+  mainWindow.webContents.on('did-start-loading', finishShortcutEditing);
   mainWindow.on('closed', () => { mainWindow = null; discovery.stop(); scanner.stop(); });
   mainWindow.loadURL(mainUrl);
   return mainWindow;
@@ -184,6 +196,13 @@ function installHandlers() {
   handle('get-config', () => store.get());
   handle('get-prefs', getPrefs);
   handle('set-prefs', setPrefs);
+  handle('get-shortcuts', () => shortcuts.getState());
+  handle('save-shortcuts', data => {
+    const result = shortcuts.save(data); mainWindow.webContents.setIgnoreMenuShortcuts(false); return result;
+  });
+  handle('edit-shortcuts', enabled => {
+    const result = shortcuts.setEditing(enabled); mainWindow.webContents.setIgnoreMenuShortcuts(enabled); return result;
+  });
   handle('connect', address => controller.connect(address));
   handle('refresh', () => controller.refresh());
   handle('demo', enabled => enabled === true ? controller.connect('', { demo: true }) : controller.leaveDemo());
@@ -211,6 +230,9 @@ function installHandlers() {
 }
 app.whenReady().then(async () => {
   store = new ConfigStore(app.getPath('userData')); controller = new Controller(store);
+  shortcuts = new Shortcuts(controller, globalShortcut, { notify: message => send('command-notice', message),
+    toggleWindow: () => { if (mainWindow?.isVisible() && mainWindow.isFocused()) mainWindow.hide(); else showWindow(); } });
+  shortcuts.on('state', state => send('shortcuts-state', state));
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   installHandlers();
@@ -231,6 +253,6 @@ app.whenReady().then(async () => {
   refreshTimer = setInterval(() => { if (controller.client) controller.refresh().catch(() => {}); }, 60000);
   app.on('activate', () => showWindow());
 });
-app.on('before-quit', () => { quitting = true; clearInterval(refreshTimer); discovery.stop(); scanner.stop(); controller?.dispose(); });
+app.on('before-quit', () => { quitting = true; clearInterval(refreshTimer); discovery.stop(); scanner.stop(); shortcuts?.dispose(); controller?.dispose(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin' && !controller?.state.config.closeToTray) app.quit(); });
-module.exports = { getWindow: () => mainWindow, getController: () => controller };
+module.exports = { getWindow: () => mainWindow, getController: () => controller, getShortcuts: () => shortcuts };
