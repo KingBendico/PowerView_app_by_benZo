@@ -2,7 +2,15 @@
 
 The shade card separates the chosen destination from the device's movement. Dragging moves a dashed target and updates the target percentage. Releasing sends one command. Refreshes leave an active drag alone; cancelling a gesture sends nothing. Numeric entry and keyboard controls choose the same target. The solid fabric represents the latest reported position or clearly labeled estimated progress, so it no longer snaps to the destination and back to an older report.
 
-Every visual control has a visible grip at its moving edge, including fully open and closed shades. Dual-rail grips line up at the center; they separate sideways only when their hit areas would overlap near meeting rails. Curtains have vertical grips on their opening edges: two for a pair, one for a single-draw curtain. Grips follow the displayed physical position; dragging still sets the separate dashed target. Grabbing an inset grip preserves the starting position instead of jumping to the pointer location. The whole illustration remains draggable, with keyboard controls on the shade or each dual rail.
+Every visual control has a visible grip at its moving edge, including fully open and closed shades. Curtains have vertical grips on their opening edges: two for a pair, one for a single-draw curtain. Grips follow the displayed physical position; dragging still sets the separate dashed target. Grabbing an inset grip preserves the starting position instead of jumping to the pointer location.
+
+Dual-rail shades use **one centered, labelled grip** with a **Top rail / Bottom rail** selector directly below the window. The selected edge is highlighted. Selecting a rail sends no movement command; dragging anywhere in the preview, arrow keys, the numeric field, nudges and percentage buttons all control that selected rail. The position is measured down from the top of the window. Whole-shade Open, Close and Stop remain separately labelled actions.
+
+When fully raised, Bottom rail is selected and Top rail explains “Lower the bottom rail first.” When both rails are at the bottom, Top rail is selected and Bottom rail explains “Raise the top rail first.” Movement limits use reported positions, keep the rails from crossing and disable presets outside the available range. A selected rail remains selected through refreshes; if it becomes unable to move, the available rail is selected when no drag or numeric edit is active. The same single-handle interaction is used at every position.
+
+![Fully raised dual-rail shade](screenshots/dual-rail-open.png)
+
+![Selected top rail in a narrow dark window](screenshots/dual-rail-narrow.png)
 
 ## Movement feedback
 

@@ -17,32 +17,45 @@ function createLiveShadeControl(shade, statusEl) {
     const fabric = inner.querySelector('.motion-fabric');
     const leftCurtain = inner.querySelector('.curtain-left'), rightCurtain = inner.querySelector('.curtain-right');
     const primaryMarker = inner.querySelector('.target-primary'), secondaryMarker = inner.querySelector('.target-secondary');
-    const inputsRow = document.createElement('div'); inputsRow.className = dual ? 'shade-dual-inputs' : 'shade-tile-pct-row';
-    const inputs = {}, handles = {};
-    const grips = {};
-    const axes = dual ? ['secondary', 'primary'] : ['primary'];
-    for (const axis of axes) {
-        const label = document.createElement('label'); label.className = dual ? 'shade-dual-input-label' : 'shade-tile-pct-label';
-        const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.max = '100'; input.step = '1';
-        input.className = dual ? 'slider-input shade-dual-num' : 'slider-input';
-        input.id = dual ? `shade-${shade.id}-dual-${axis === 'primary' ? 'hem' : 'rail'}` : `shade-${shade.id}-pct-closed`;
-        input.setAttribute('aria-label', `${shade.ptName}, ${dual ? axis === 'primary' ? 'bottom rail' : 'top rail' : 'percent closed'}`);
-        if (dual) label.appendChild(document.createTextNode(axis === 'primary' ? 'Shade ' : 'Rail '));
-        label.appendChild(input);
-        if (!dual) { const suffix = document.createElement('span'); suffix.className = 'shade-tile-pct-suffix'; suffix.textContent = '% closed'; label.appendChild(suffix); }
-        inputsRow.appendChild(label); inputs[axis] = input;
-        const handle = dual ? document.createElement('div') : visual;
-        if (dual) {
-            handle.className = `shade-handle shade-handle-${axis === 'primary' ? 'primary' : 'rail'} motion-grip`;
-            handle.dataset.axis = axis;
-            handle.title = `Drag the ${axis === 'primary' ? 'bottom' : 'top'} rail to choose a target`;
-            inner.appendChild(handle);
+    const inputsRow = document.createElement('div'); inputsRow.className = dual ? 'dual-rail-controls' : 'shade-tile-pct-row';
+    const railButtons = {}, grips = {};
+    let activeAxis = 'primary', quickActions = null;
+    const railName = axis => axis === 'primary' ? 'Bottom rail' : 'Top rail';
+    const handle = dual ? document.createElement('div') : visual;
+    const railEdge = dual ? document.createElement('div') : null;
+    const railHint = dual ? document.createElement('div') : null;
+    if (dual) {
+        railEdge.className = 'dual-rail-edge'; railEdge.setAttribute('aria-hidden', 'true'); inner.appendChild(railEdge);
+        handle.className = 'shade-handle motion-grip dual-rail-grip';
+        const caption = document.createElement('span'); caption.className = 'dual-rail-grip-label'; handle.appendChild(caption); inner.appendChild(handle);
+        const picker = document.createElement('div'); picker.className = 'dual-rail-picker'; picker.setAttribute('role', 'group');
+        picker.setAttribute('aria-label', `${shade.ptName}, rail to control`);
+        railHint.className = 'dual-rail-hint'; railHint.id = `shade-${shade.id}-rail-hint`;
+        for (const axis of ['secondary', 'primary']) {
+            const button = document.createElement('button'); button.type = 'button'; button.dataset.rail = axis;
+            const icon = document.createElement('span'); icon.className = 'dual-rail-icon'; icon.setAttribute('aria-hidden', 'true'); button.appendChild(icon);
+            button.appendChild(document.createTextNode(railName(axis))); button.setAttribute('aria-describedby', railHint.id);
+            button.addEventListener('click', () => {
+                if (drag || !canEdit() || !railRange(axis).movable) return;
+                draft = null; activeAxis = axis; sync();
+            });
+            picker.appendChild(button); railButtons[axis] = button;
         }
-        handle.tabIndex = 0; handle.setAttribute('role', 'slider');
-        handle.setAttribute('aria-label', `${shade.ptName}, ${dual ? axis === 'primary' ? 'bottom rail' : 'top rail' : curtains ? 'curtain position' : 'shade position'}`);
-        handle.setAttribute('aria-orientation', curtains ? 'horizontal' : 'vertical');
-        handle.setAttribute('aria-valuemin', '0'); handle.setAttribute('aria-valuemax', '100'); handles[axis] = handle;
+        inputsRow.appendChild(picker); handle.setAttribute('aria-describedby', railHint.id);
     }
+    const label = document.createElement('label'); label.className = dual ? 'dual-rail-position' : 'shade-tile-pct-label';
+    const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.max = '100'; input.step = dual ? 'any' : '1';
+    input.className = 'slider-input'; input.id = dual ? `shade-${shade.id}-rail-position` : `shade-${shade.id}-pct-closed`;
+    input.setAttribute('aria-label', `${shade.ptName}, percent closed`);
+    if (dual) { label.appendChild(document.createTextNode('Position')); input.setAttribute('aria-describedby', railHint.id); }
+    label.appendChild(input);
+    const suffix = document.createElement('span'); suffix.className = 'shade-tile-pct-suffix'; suffix.textContent = dual ? '% from top' : '% closed'; label.appendChild(suffix);
+    inputsRow.appendChild(label);
+    if (dual) inputsRow.appendChild(railHint);
+    handle.tabIndex = 0; handle.setAttribute('role', 'slider');
+    handle.setAttribute('aria-label', `${shade.ptName}, ${curtains ? 'curtain position' : 'shade position'}`);
+    handle.setAttribute('aria-orientation', curtains ? 'horizontal' : 'vertical');
+    handle.setAttribute('aria-valuemin', '0'); handle.setAttribute('aria-valuemax', '100');
     if (!dual) {
         for (const side of curtains ? ['left', 'right'] : ['primary']) {
             const grip = document.createElement('span');
@@ -70,12 +83,20 @@ function createLiveShadeControl(shade, statusEl) {
         return draft || toVisual({ ...devicePosition(), ...target });
     }
     function description(values) {
-        return dual ? `rail ${Math.round(values.secondary)}% · shade ${Math.round(values.primary)}%` : `${Math.round(values.primary)}% closed`;
+        return dual ? `top rail ${Math.round(values.secondary)}% · bottom rail ${Math.round(values.primary)}%` : `${Math.round(values.primary)}% closed`;
+    }
+    function railRange(axis) {
+        const positions = reported(), values = toVisual(positions);
+        const known = Number.isFinite(positions.primary) && Number.isFinite(positions.secondary);
+        const min = known && axis === 'primary' ? clamp(values.secondary) : 0;
+        const max = known && axis === 'secondary' ? clamp(values.primary) : 100;
+        return { min, max, movable: known && max - min > .01 };
     }
     function bounded(value, axis, values) {
         value = clamp(Math.round(value));
         if (!dual) return value;
-        return axis === 'primary' ? Math.max(values.secondary, value) : Math.min(values.primary, value);
+        const range = railRange(axis);
+        return Math.max(range.min, Math.min(range.max, value));
     }
     function draw() {
         const physical = devicePosition();
@@ -87,22 +108,21 @@ function createLiveShadeControl(shade, statusEl) {
         const values = toVisual(physical), chosen = selection(); rendered = { ...physical };
         const valid = Number.isFinite(values.primary) && (!dual || Number.isFinite(physical.secondary));
         inner.classList.toggle('position-unreported', !valid);
+        if (dual && !drag && !draft && document.activeElement !== input && !railRange(activeAxis).movable) {
+            const other = activeAxis === 'primary' ? 'secondary' : 'primary';
+            if (railRange(other).movable) activeAxis = other;
+        }
         if (valid) {
             const p = clamp(values.primary), s = dual ? Math.min(p, clamp(values.secondary)) : 0;
-            if (dual) {
-                const height = inner.clientHeight;
-                const gripY = percent => Math.max(11, Math.min(height - 11, height * percent / 100));
-                // Center both grips unless their hit areas would overlap.
-                inner.classList.toggle('rails-touching', height > 0 && gripY(p) - gripY(s) < 22);
-            }
             fabric.style.top = `${s}%`; fabric.style.height = `${Math.max(0, p - s)}%`;
             const panels = curtainGeometry.panels(p, curtainDraw);
             leftCurtain.style.width = `${panels.left}%`; rightCurtain.style.width = `${panels.right}%`;
             leftCurtain.hidden = panels.left === 0; rightCurtain.hidden = panels.right === 0;
             inner.dataset.physicalPrimary = p.toFixed(2);
             if (dual) {
-                handles.secondary.style.top = `clamp(11px, ${s}%, calc(100% - 11px))`;
-                handles.primary.style.top = `clamp(11px, ${p}%, calc(100% - 11px))`;
+                const edge = activeAxis === 'primary' ? p : s;
+                handle.style.top = `clamp(14px, ${edge}%, calc(100% - 14px))`;
+                railEdge.style.top = `clamp(1px, ${edge}%, calc(100% - 2px))`;
                 inner.dataset.physicalSecondary = s.toFixed(2);
             } else if (curtains) {
                 for (const side of ['left', 'right']) {
@@ -113,9 +133,10 @@ function createLiveShadeControl(shade, statusEl) {
         }
         const target = localTarget || appState?.targets?.[shade.id]?.positions || motion()?.target;
         const showTarget = !!draft || !!target && Object.keys(target).length > 0;
-        const suffix = inputsRow.querySelector('.shade-tile-pct-suffix');
-        if (suffix) suffix.textContent = showTarget ? 'target % closed' : '% closed';
-        primaryMarker.hidden = !showTarget; secondaryMarker.hidden = !showTarget || (!dual && (!curtains || curtainDraw !== 'split'));
+        const activeHasTarget = !!draft || Number.isFinite(target?.[activeAxis]);
+        suffix.textContent = dual ? activeHasTarget ? 'target % from top' : '% from top' : showTarget ? 'target % closed' : '% closed';
+        primaryMarker.hidden = !showTarget || dual && (draft ? activeAxis !== 'primary' : !Number.isFinite(target?.primary));
+        secondaryMarker.hidden = !showTarget || (dual ? draft ? activeAxis !== 'secondary' : !Number.isFinite(target?.secondary) : !curtains || curtainDraw !== 'split');
         if (showTarget) {
             if (curtains) {
                 const panels = curtainGeometry.panels(chosen.primary, curtainDraw);
@@ -126,15 +147,40 @@ function createLiveShadeControl(shade, statusEl) {
                 secondaryMarker.style.top = `${chosen.secondary}%`;
             }
         }
-        for (const axis of axes) {
-            handles[axis].setAttribute('aria-disabled', String(!canEdit()));
-            const display = showTarget ? chosen[axis] : values[axis];
-            if (document.activeElement !== inputs[axis] && Number.isFinite(display)) inputs[axis].value = String(Math.round(display));
-            if (Number.isFinite(display)) {
-                handles[axis].setAttribute('aria-valuenow', String(Math.round(display)));
-                handles[axis].setAttribute('aria-valuetext', `${showTarget ? 'Target: ' : ''}${Math.round(display)} percent`);
-            } else {
-                handles[axis].removeAttribute('aria-valuenow'); handles[axis].setAttribute('aria-valuetext', 'Position not reported');
+        const display = activeHasTarget ? chosen[activeAxis] : values[activeAxis];
+        if (document.activeElement !== input) input.value = Number.isFinite(display) ? String(dual ? Number(display.toFixed(2)) : Math.round(display)) : '';
+        const blocked = dual && !railRange(activeAxis).movable;
+        handle.dataset.positionBlocked = input.dataset.positionBlocked = String(blocked);
+        input.disabled = !canEdit() || blocked;
+        handle.setAttribute('aria-disabled', String(!canEdit() || blocked)); handle.tabIndex = !canEdit() || blocked ? -1 : 0;
+        if (Number.isFinite(display)) {
+            handle.setAttribute('aria-valuenow', String(Math.round(display)));
+            handle.setAttribute('aria-valuetext', `${activeHasTarget ? 'Target: ' : ''}${Math.round(display)} percent${dual ? ' from top' : ''}`);
+        } else {
+            handle.removeAttribute('aria-valuenow'); handle.setAttribute('aria-valuetext', 'Position not reported');
+        }
+        if (dual) {
+            const range = railRange(activeAxis);
+            handle.dataset.axis = activeAxis; inner.dataset.activeRail = activeAxis;
+            handle.querySelector('.dual-rail-grip-label').textContent = railName(activeAxis);
+            handle.setAttribute('aria-label', `${shade.ptName}, ${railName(activeAxis)} position`);
+            handle.title = `Drag to move the ${railName(activeAxis).toLowerCase()}`;
+            input.setAttribute('aria-label', `${shade.ptName}, ${railName(activeAxis)} percent from top`);
+            input.min = String(range.min); input.max = String(range.max);
+            handle.setAttribute('aria-valuemin', input.min); handle.setAttribute('aria-valuemax', input.max);
+            for (const [axis, button] of Object.entries(railButtons)) {
+                button.dataset.positionBlocked = String(!!drag || !railRange(axis).movable);
+                button.disabled = !canEdit() || button.dataset.positionBlocked === 'true';
+                button.setAttribute('aria-pressed', String(axis === activeAxis));
+            }
+            railHint.textContent = !valid ? 'Refresh to get both rail positions.' : !railRange('secondary').movable ? 'Lower the bottom rail first to use the top rail.'
+                : !railRange('primary').movable ? 'Raise the top rail first to use the bottom rail.' : 'Drag, type or use presets for this rail.';
+            if (quickActions) for (const button of quickActions.querySelectorAll('[data-rail-value],[data-rail-step]')) {
+                const step = Number(button.dataset.railStep), value = Number(button.dataset.railValue);
+                const disabled = !range.movable || (button.hasAttribute('data-rail-step') ? step < 0 ? chosen[activeAxis] <= range.min : chosen[activeAxis] >= range.max : value < range.min || value > range.max);
+                button.dataset.positionBlocked = String(disabled); button.disabled = !canEdit() || disabled;
+                const action = button.hasAttribute('data-rail-step') ? `${step < 0 ? 'Raise' : 'Lower'} the ${railName(activeAxis).toLowerCase()}` : `Set the ${railName(activeAxis).toLowerCase()} to ${value}% from top`;
+                button.title = action; button.setAttribute('aria-label', `${shade.ptName}, ${action}`);
             }
         }
         const moving = motion();
@@ -167,8 +213,11 @@ function createLiveShadeControl(shade, statusEl) {
         if (!frame) frame = requestAnimationFrame(tick);
     }
     function commit(axis) {
-        if (!draft || !canEdit()) { draft = null; sync(); return; }
+        if (!draft || !canEdit() || dual && !railRange(axis).movable) { draft = null; sync(); return; }
+        draft[axis] = bounded(draft[axis], axis, draft);
         const positions = toGateway(draft, axis);
+        const existing = localTarget || appState?.targets?.[shade.id]?.positions || motion()?.target || reported();
+        if (dual && Math.abs(positions[axis] - existing[axis]) < .01) { draft = null; sync(); return; }
         localTarget = positions; draft = null; sync(); statusEl.textContent = 'Sending…';
         api.moveShade({ id: shade.id, positions }).catch(error => { statusEl.textContent = error.message; })
             .finally(() => { localTarget = null; sync(); });
@@ -200,13 +249,13 @@ function createLiveShadeControl(shade, statusEl) {
         cancelDrag(); draft = null; if (root.isConnected) sync();
     }
     inner.addEventListener('pointerdown', event => {
-        if (drag || !canEdit() || (event.pointerType !== 'touch' && event.button !== 0)) return;
+        if (drag || !canEdit() || dual && !railRange(activeAxis).movable || (event.pointerType !== 'touch' && event.button !== 0)) return;
         event.preventDefault();
         if (root.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') document.activeElement.blur();
         const rect = inner.getBoundingClientRect(); draft = { ...selection() };
         const y = (event.clientY - rect.top) / rect.height * 100;
         const grip = event.target.closest('.motion-grip');
-        const axis = grip?.dataset.axis || (dual && Math.abs(y - draft.secondary) < Math.abs(y - draft.primary) ? 'secondary' : 'primary');
+        const axis = activeAxis;
         const side = grip?.dataset.side || (event.clientX < rect.left + rect.width / 2 ? 'left' : 'right');
         let offset = 0;
         if (grip) {
@@ -220,7 +269,7 @@ function createLiveShadeControl(shade, statusEl) {
                 offset = (curtains ? (event.clientX - rect.left) / rect.width : y / 100) - edge;
             }
         }
-        handles[axis].focus({ preventScroll: true });
+        handle.focus({ preventScroll: true });
         drag = { id: event.pointerId, rect, axis, side, offset };
         inner.classList.add('shade-window-dragging');
         try { inner.setPointerCapture(event.pointerId); } catch { /* Synthetic test pointers have no capture. */ }
@@ -228,23 +277,25 @@ function createLiveShadeControl(shade, statusEl) {
         document.addEventListener('pointercancel', onCancel, true); window.addEventListener('blur', onCancel);
         inner.addEventListener('lostpointercapture', onCancel); chooseAt(event);
     });
-    for (const axis of axes) {
-        inputs[axis].addEventListener('input', () => {
-            if (!inputs[axis].checkValidity() || inputs[axis].value === '') return;
-            draft = { ...selection() }; draft[axis] = bounded(Number(inputs[axis].value), axis, draft); sync();
-        });
-        inputs[axis].addEventListener('change', () => {
-            if (!inputs[axis].checkValidity() || inputs[axis].value === '') { inputs[axis].reportValidity(); return; }
-            draft = { ...selection() }; draft[axis] = bounded(Number(inputs[axis].value), axis, draft); commit(axis);
-        });
-        inputs[axis].addEventListener('blur', () => { draft = null; sync(); });
-        handles[axis].addEventListener('keydown', event => {
-            if (!canEdit() || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-            event.preventDefault(); draft = { ...selection() };
-            const horizontalReverse = curtains && curtainDraw === 'right' && ['ArrowLeft','ArrowRight'].includes(event.key) ? -1 : 1;
-            const next = event.key === 'Home' ? 0 : event.key === 'End' ? 100 : draft[axis] + (['ArrowUp','ArrowLeft'].includes(event.key) ? -1 : 1) * horizontalReverse;
-            draft[axis] = bounded(next, axis, draft); commit(axis);
-        });
-    }
-    sync(); return { root, sync };
+    input.addEventListener('input', () => {
+        if (!input.checkValidity() || input.value === '') return;
+        draft = { ...selection() }; draft[activeAxis] = bounded(Number(input.value), activeAxis, draft); sync();
+    });
+    input.addEventListener('change', () => {
+        if (!input.checkValidity() || input.value === '') { input.reportValidity(); return; }
+        draft = { ...selection() }; draft[activeAxis] = bounded(Number(input.value), activeAxis, draft); commit(activeAxis);
+    });
+    input.addEventListener('blur', () => { draft = null; sync(); });
+    handle.addEventListener('keydown', event => {
+        if (!canEdit() || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault(); draft = { ...selection() };
+        const horizontalReverse = curtains && curtainDraw === 'right' && ['ArrowLeft','ArrowRight'].includes(event.key) ? -1 : 1;
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? 100 : draft[activeAxis] + (['ArrowUp','ArrowLeft'].includes(event.key) ? -1 : 1) * horizontalReverse;
+        draft[activeAxis] = bounded(next, activeAxis, draft); commit(activeAxis);
+    });
+    sync(); return { root, sync, ...(dual ? {
+        setRailPosition(value) { draft = { ...selection() }; draft[activeAxis] = bounded(value, activeAxis, draft); commit(activeAxis); },
+        nudgeRail(step) { this.setRailPosition(selection()[activeAxis] + step); },
+        bindQuickActions(row) { quickActions = row; sync(); },
+    } : {}) };
 }

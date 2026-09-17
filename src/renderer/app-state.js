@@ -11,7 +11,7 @@ function reportedText(shade) {
     if (!shade.available) return 'Offline · last reported position';
     if (shade.controls.kind === 'dual-rail') {
         if (shade.positions.primary == null || shade.positions.secondary == null) return 'Position not reported';
-        return `Reported: rail ${Math.round(shade.positions.secondary * 100)}% · hem ${closedPercent(shade)}%`;
+        return `Reported: top rail ${Math.round(shade.positions.secondary * 100)}% · bottom rail ${closedPercent(shade)}% from top`;
     }
     if (shade.controls.kind === 'tilt') return shade.positions.tilt == null ? 'Tilt not reported' : `Reported tilt: ${Math.round(shade.positions.tilt * 100)}%`;
     return shade.positions.primary == null ? 'Position not reported' : `Reported: ${closedPercent(shade)}% closed`;
@@ -125,10 +125,10 @@ function updateCommandAvailability() {
         tile.classList.toggle('is-position-unknown', unknown);
         tile.classList.toggle('is-unavailable', !isConnected() || !shade.available);
         for (const control of tile.querySelectorAll('.shade-tile-body button, .shade-tile-body input')) {
-            control.disabled = !isConnected() || (control.dataset.action !== 'stop' && (pending || !shade.available));
+            control.disabled = control.dataset.positionBlocked === 'true' || !isConnected() || (control.dataset.action !== 'stop' && (pending || !shade.available));
         }
         for (const visual of tile.querySelectorAll('[role="slider"]')) {
-            const disabled = !isConnected() || !shade.available || pending;
+            const disabled = visual.dataset.positionBlocked === 'true' || !isConnected() || !shade.available || pending;
             visual.setAttribute('aria-disabled', String(disabled)); visual.tabIndex = disabled ? -1 : 0;
         }
     }
@@ -146,7 +146,7 @@ function createIndividualActions(shade, statusEl) {
     for (const [action, label] of [['open','Open'], ['close','Close'], ['stop','Stop']]) {
         if (!shade.controls.known && action !== 'stop') continue;
         const button = document.createElement('button'); button.type = 'button'; button.className = 'btn-fine-shade';
-        button.dataset.action = action; button.textContent = label; button.setAttribute('aria-label', `${label} ${shade.ptName}`);
+        button.dataset.action = action; button.textContent = shade.controls.kind === 'dual-rail' && action !== 'stop' ? `${label} shade` : label; button.setAttribute('aria-label', `${label} ${shade.ptName}`);
         button.addEventListener('click', () => runShadeAction(shade.id, action, statusEl)); row.appendChild(button);
     }
     return row;

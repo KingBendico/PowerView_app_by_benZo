@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-17T15:59:05.037Z",
+  "at": "2026-09-17T17:48:58.309Z",
   "electron": "44.4.1",
   "platform": "darwin",
   "arch": "arm64",
@@ -13,7 +13,9 @@
     "Stop interrupts travel and holds the physical position",
     "appearance editor saves curtain style and color without moving the device",
     "curtain dragging uses horizontal targets and updates both fabric panels",
-    "type 9 preserves dual controls and rail keyboard operation",
+    "type 9 preserves both rail choices and selected-rail keyboard operation",
+    "one labelled grip defaults to the movable rail and selecting another rail sends no command",
+    "selected rail controls dragging, keyboard and limits without moving the other rail",
     "Bedroom left allows curtain selection and replaces demo rails with working curtain controls",
     "single-draw curtains preview, drag and animate toward the selected stacking side",
     "resetting a demo curtain restores the original two-rail shade and clears the saved override",

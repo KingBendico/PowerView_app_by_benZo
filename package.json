@@ -1,7 +1,7 @@
 {
   "name": "PowerView_App_by_benZo",
   "productName": "PowerView",
-  "version": "1.1.0-beta.5",
+  "version": "1.1.0-beta.6",
   "description": "Local desktop control for PowerView Gen 3 shades and scenes",
   "main": "src/main/main.js",
   "scripts": {
