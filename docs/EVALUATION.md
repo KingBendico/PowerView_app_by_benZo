@@ -2,7 +2,7 @@
 
 Revised 16 September 2026 against the current local PowerView source supplied by BenZo, including its uncommitted changes. This is the source matching the supplied screenshot. The earlier GitHub-master review described an older, substantially less capable app and is superseded for product decisions.
 
-**This is already a capable desktop controller. The next release should refine and harden the existing interface, preserve its visual shade controls, and make state and navigation more predictable.** A replacement interface is unnecessary. Favorites, tray access, room-wide actions, live updates, keyboard shortcuts, numeric positioning and visual controls are existing features, not proposed additions.
+**This is already a capable desktop controller, but its visual design and information layout need a substantial upgrade.** Preserve the working control behavior while redesigning the dashboard, navigation and shade presentation. Reliability and clearer feedback remain equally important. Favorites, tray access, room-wide actions, live updates, keyboard shortcuts, numeric positioning and visual controls are existing features, not proposed additions.
 
 The untouched baseline is preserved in the local evaluation workspace, with a [file hash manifest](evaluation-evidence/current-source-manifest.json). This assessment describes that baseline before the improvements in this branch. The original source folder has not been modified.
 
@@ -64,13 +64,13 @@ Electron's own recommendations support the isolation, sandbox, navigation and IP
 
 **UI and UX direction**
 
-Retain the light/dark palette, blue accents, rounded surfaces and physical window graphics shown in the screenshot. The biggest visual opportunity is more efficient use of space, clearer state and stronger grouping—not a wholesale redesign.
+The first proposed visual changes were too modest for the requested improvement. The revised direction uses a desktop sidebar, warm neutral surfaces, restrained green accents, a forest dark theme and simpler textured window graphics. Home prioritizes pinned shade controls, with whole-home actions and favorite scenes together above them. Room shortcuts and global search reduce navigation steps. Keep the established drag, numeric, rail and scene behavior while changing the surrounding design.
 
 - Put the room title, Back and room actions in a coherent header. A single-shade room currently has a lot of empty space and a detached toolbar; use a comfortable content width that adapts to shade count.
 - Keep Home, Blinds and Scenes navigation visible and indicate the active destination. Home can collect existing favorite scenes and newly pinned shades; it does not require rebuilding scene favorites.
 - Keep the large draggable control, with the reported value clearly distinguishable from a requested value. Explain unknown/offline state rather than showing a fabricated position.
 - Label presets consistently as percentage closed; give Stop a direct, easy-to-find action. Add individual Open/Close/Stop where that makes sense for the mechanism.
-- Add search to rooms/scenes when lists are large; preserve existing room order, colors and recent shortcuts.
+- Provide search across rooms, shades and scenes, with Command/Ctrl+K and keyboard result navigation; preserve room order, color indicators and recent shortcuts.
 - Make command feedback concise and specific: “Sending”, “Command accepted”, “Reported: 29% closed”, or a recoverable error. An active scene and an accepted scene command should have different meanings.
 - Keep technical Swagger tools in an Advanced section so first-time setup stays short. Preserve the tools for troubleshooting.
 - Add readable empty states and retain keyboard focus when refreshing data. Verify 360-pixel width, long names, dark mode, zoom and keyboard-only operation.
@@ -97,8 +97,12 @@ Scheduling, automatic glare control and natural-language control should follow c
 **Revised implementation sequence**
 
 1. Preserve the current source and preferences. Fix percentages, stale navigation, state/timeout handling, Electron isolation and settings recovery. Refresh dependencies and test relevant shade capabilities.
-2. Add Home/pinned shades and demo mode. Improve the existing tray, group results, keyboard access and navigation. Preserve the screenshot's appearance and all working control paths.
-3. Validate against the actual hub and representative single/dual shades, then decide on search, diagnostics and scene previews. Treat automation as a later project.
+2. Redesign Home and the desktop navigation, add pinned shades, search and demo mode, and update the shade illustrations. Improve the existing tray, group results and keyboard access while preserving working control paths.
+3. Validate against the actual hub and representative single/dual shades, then prioritize diagnostics and scene previews. Treat automation as a later project.
+
+**Implementation update after design feedback**
+
+The review branch now includes the new layout and light/dark visual system, compact shade controls, a Home dashboard with pinned shades and existing favorite scenes, whole-home shortcuts, room shortcuts, and name search for rooms, shades and scenes. It also includes the isolation, request handling, configuration recovery, percentage, group-result and navigation fixes described above. Home, background control, demo and search in the idea table are now implemented in this branch. The table records the original roadmap; scene previews, saved custom groups, activity history and automation remain future ideas. See the validation record for tested behavior and hardware limits.
 
 **Evidence and limits**
 

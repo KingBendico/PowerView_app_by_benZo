@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-16T12:16:48.498Z",
+  "at": "2026-09-16T21:02:37.116Z",
   "electron": "44.4.1",
   "platform": "darwin",
   "arch": "arm64",
@@ -13,6 +13,7 @@
     "late refresh cannot reopen a previous room",
     "settings traps focus, Escape restores focus, dark theme works",
     "360px window and enlarged text avoid horizontal overflow",
+    "command search opens a matching room and supports Command-K",
     "real IPC and HTTP failures retain reported positions; no extra axis",
     "live SSE updates the visual and reported position",
     "invalid target IDs are rejected at the main-process boundary",

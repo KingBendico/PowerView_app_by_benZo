@@ -7,6 +7,7 @@
     <script src="../src/renderer/theme-init.js"></script>
     <link rel="stylesheet" href="../assets/fontawesome/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="../assets/style.css">
+    <link rel="stylesheet" href="../assets/desktop.css">
     <title>PowerView</title>
 </head>
 <body class="app-initial-load">
@@ -35,6 +36,8 @@
 
 <!-- Bottom navigation bar -->
 <nav class="bottom-nav" aria-label="Main navigation">
+    <div class="sidebar-brand"><span class="brand-mark"><i class="fas fa-window-maximize" aria-hidden="true"></i></span><span>PowerView<small>by BenZo</small></span></div>
+    <div class="sidebar-label">YOUR HOME</div>
     <button id="btn-home"><i class="fas fa-house" aria-hidden="true"></i> Home</button>
     <button id="btn-blinds">
         <i class="fas fa-window-maximize"></i> Blinds
@@ -44,6 +47,12 @@
     </button>
 </nav>
 
+<div class="command-search">
+    <label for="homeSearch"><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Find a room, shade or scene</span></label>
+    <input id="homeSearch" type="search" placeholder="Find a room, shade or scene…" autocomplete="off" aria-controls="searchResults" aria-expanded="false">
+    <kbd>⌘ K</kbd>
+    <div id="searchResults" class="search-results" hidden></div>
+</div>
 <!-- Theme, Info and Settings buttons -->
 <div class="top-buttons">
     <button type="button" class="theme-button" id="themeButton" aria-label="Light mode. Click for dark mode.">
@@ -106,12 +115,12 @@
         <div class="info-help-body">
             <p class="info-help-lead">This app controls Hunter Douglas PowerView shades and scenes through your <b>primary gateway</b> on your home network.</p>
 
-            <h2 class="info-help-h2">Home</h2><p>Home brings your favorite scenes and pinned shades together. Star a shade in Blinds to pin it. All position presets use percent closed. Reported values come from the gateway; command acceptance does not mean motion is complete.</p>
+            <h2 class="info-help-h2">Home</h2><p>Home brings whole-home controls, favorite scenes, pinned shades and room shortcuts together. Star a shade in Blinds to pin it. All position presets use percent closed. Reported values come from the gateway; command acceptance does not mean motion is complete.</p>
             <h2 class="info-help-h2">Blinds</h2>
             <p>Pick a <b>room</b>, then adjust each shade. Rooms can be sorted by gateway order, A–Z, or recent. Shades are shown as tiles: drag the window graphic or type a percentage. Supported dual shades (top rail + bottom hem) use two grips; single-motor shades use one.</p>
 
             <h2 class="info-help-h2">Scenes</h2>
-            <p>Use <b>Scenes</b> in the bottom bar to run gateway scenes. Star favorites and use recent chips for quick access.</p>
+            <p>Use <b>Scenes</b> in the navigation to run gateway scenes. Star favorites and use recent chips for quick access.</p>
 
             <h2 class="info-help-h2">Connection &amp; settings</h2>
             <p>Set the primary gateway <b>address</b> under the gear icon (settings opens in this window). Use <b>Test connection</b> or <b>Open Swagger UI</b> if you need to check the hub — Swagger on port <b>3002</b> lists every REST path (scenes, shades, rooms, automation, and more) and is the best place to discover new capabilities. A yellow bar means the app cannot reach the gateway (wrong IP, hub offline, or network issue).</p>
@@ -119,6 +128,7 @@
             <h2 class="info-help-h2">Tips</h2>
             <ul class="info-help-list">
                 <li><b>Theme</b>: toggle light and dark with the sun/moon button on the main window.</li>
+                <li><b>Command+K</b> or <b>Ctrl+K</b> focuses search. Find a room or shade, or run a scene. Use arrow keys to choose a result and Enter to open it.</li>
                 <li><b>Escape</b> closes settings or help if they are open; otherwise it leaves a room's shade view and returns to all rooms.</li>
                 <li><b>Ctrl+B</b> / <b>Ctrl+S</b> jump to Blinds or Scenes.</li>
                 <li><b>Ctrl+1</b> through <b>Ctrl+9</b> open the 1st–9th room in the <b>current</b> Blinds grid order (Gateway / A–Z / Recent). Use the <b>Control</b> key (not Command on Mac). Top-row and numpad digits both work while this window is focused. Number badges on tiles match the shortcut.</li>
@@ -134,5 +144,6 @@
 <script src="../src/renderer/renderer.js"></script>
 <script src="../src/renderer/app-state.js"></script>
 <script src="../src/renderer/settings.js"></script>
+<script src="../src/renderer/search.js"></script>
 </body>
 </html>

@@ -77,6 +77,16 @@ async function run() {
     assert.equal(await js('document.documentElement.scrollWidth <= window.innerWidth'), true);
     win.webContents.setZoomFactor(1);
   });
+  await check('command search opens a matching room and supports Command-K', async () => {
+    await js('document.dispatchEvent(new KeyboardEvent("keydown",{key:"k",metaKey:true,bubbles:true,cancelable:true}))');
+    assert.equal(await js('document.activeElement.id'), 'homeSearch');
+    await js('document.getElementById("homeSearch").value="Bedroom"; document.getElementById("homeSearch").dispatchEvent(new Event("input")); document.querySelector("#searchResults button").click()');
+    assert.equal(await js('displayedRoomId'), '3');
+    assert.equal(await js('document.getElementById("searchResults").hidden'), true);
+    await js('document.getElementById("homeSearch").focus(); document.getElementById("homeSearch").value="Garden"; document.getElementById("homeSearch").dispatchEvent(new Event("input")); document.getElementById("homeSearch").dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))');
+    assert.equal(await js('displayedRoomId'), '3');
+    assert.equal(await js('document.getElementById("searchResults").hidden'), true);
+  });
   const data = { rooms: [{ id: 1, ptName: '<b>Fixture room</b>', color: 0 }],
     shades: [{id:11,roomId:1,type:1,ptName:'Fixture shade',positions:{primary:.25}}],
     scenes: [{id:101,ptName:'Fixture scene',roomIds:[1]}] };
@@ -124,7 +134,7 @@ async function run() {
   await check('captured native light/dark and narrow screenshots', async () => {
     await js('api.demo(true)'); await until(async () => await js('appState.connection.status') === 'demo');
     await js('api.setPrefs({...prefs,theme:"light"})');
-    await js('currentMainView="home"; showHome(); clearTimeout(showSceneRunToast._hideTimer); document.getElementById("sceneRunToast")?.classList.remove("is-visible")');
+    await js('currentMainView="home"; showHome(); document.activeElement.blur(); window.scrollTo(0,0); clearTimeout(showSceneRunToast._hideTimer); document.getElementById("sceneRunToast")?.classList.remove("is-visible")');
     const output=path.resolve(__dirname,'../docs/screenshots'); fs.mkdirSync(output,{recursive:true});
     await wait(250); fs.writeFileSync(path.join(output,'home-light.png'),(await win.webContents.capturePage()).toPNG());
     await js('api.setPrefs({...prefs,theme:"dark"})');

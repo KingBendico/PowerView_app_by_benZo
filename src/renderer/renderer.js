@@ -897,7 +897,7 @@ function showRooms(rooms) {
         const card = document.createElement('button');
         card.type = 'button';
         card.className = 'card room-tile';
-        card.style.backgroundColor = colors[parseInt(room.color)] || '#FFFFFF';
+        card.style.setProperty('--room-accent', colors[parseInt(room.color)] || '#8da6ab');
         card.dataset.roomId = room.id;
 
         if (gridIndex < 9) {
@@ -920,6 +920,8 @@ function showRooms(rooms) {
 
         card.appendChild(iconWrap);
         card.appendChild(title);
+        const subtitle = document.createElement('span'); subtitle.className = 'room-card-count';
+        const count = allShades.filter(shade => shade.roomId === room.id).length; subtitle.textContent = `${count} ${count === 1 ? 'shade' : 'shades'}`; card.appendChild(subtitle);
 
         card.addEventListener('click', function () {
             navigateToRoomShades(room);
@@ -1906,6 +1908,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     uiOverlays.infoClose();
                     return;
                 }
+                if (event.target.closest?.('.command-search')) return;
                 if (currentMainView === 'room-shades') {
                     event.preventDefault();
                     fetchAndShowRooms();

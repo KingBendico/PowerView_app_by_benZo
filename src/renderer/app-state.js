@@ -28,6 +28,10 @@ function applyState(state) {
     const previousAddress = appState?.connection.address;
     const previousFavorites = JSON.stringify(appState?.favorites);
     appState = state;
+    if (previousAddress !== state.connection.address) {
+        const search = document.getElementById('homeSearch'); if (search) { search.value = ''; search.setAttribute('aria-expanded', 'false'); }
+        const results = document.getElementById('searchResults'); if (results) results.hidden = true;
+    }
     const recent = state.config.recent[state.connection.address] || { scenes: [], rooms: [] };
     prefs = { ...prefs, theme: state.config.theme, closeToTray: state.config.closeToTray, roomSort: state.config.roomSort,
         favoriteShades: state.favorites.shadeIds,
@@ -78,7 +82,7 @@ function applyState(state) {
         const star = tile?.querySelector('.scene-star');
         if (star) { star.classList.toggle('is-favorite', state.favorites.shadeIds.includes(shade.id)); star.setAttribute('aria-pressed', String(state.favorites.shadeIds.includes(shade.id))); }
     }
-    updateSceneButtons(); updateCommandAvailability(); updateNavigation(); finalizeInitialShellReveal();
+    updateSceneButtons(); updateCommandAvailability(); updateHomeSummary(); updateNavigation(); finalizeInitialShellReveal();
 }
 function renderCurrentView() {
     if (currentMainView === 'room-shades' && allRooms.some(room => room.id === displayedRoomId)) displayShadesInRoom(displayedRoomId);
@@ -156,12 +160,22 @@ function createAxisControl(shade, axis, statusEl) {
     });
     label.appendChild(input); return label;
 }
+function updateHomeSummary() {
+    const status = document.getElementById('homeOverviewStatus');
+    if (!status) return;
+    const offline = allShades.filter(shade => !shade.available).length;
+    status.textContent = !isConnected() ? 'Gateway offline · showing last reported positions.'
+        : offline ? `${offline} ${offline === 1 ? 'shade needs' : 'shades need'} attention. Open its room for details.`
+        : `${allShades.length} shades across ${allRooms.length} rooms`;
+}
 function showHome() {
     currentMainView = 'home'; displayedRoomId = null; liveShadeTileRefs.clear();
     const content = document.getElementById('content'); content.className = 'content-home'; content.replaceChildren();
-    const title = document.createElement('h2'); title.textContent = 'Home'; content.appendChild(title);
+    const eyebrow = document.createElement('div'); eyebrow.className = 'page-eyebrow';
+    eyebrow.textContent = new Intl.DateTimeFormat(undefined,{weekday:'long',month:'long',day:'numeric'}).format(new Date()); content.appendChild(eyebrow);
+    const title = document.createElement('h2'); title.textContent = 'Home overview'; content.appendChild(title);
     const intro = document.createElement('p'); intro.className = 'home-intro';
-    intro.textContent = appState?.connection.status === 'demo' ? 'Demo home · explore with simulated shades' : isConnected() ? `${allRooms.length} rooms · ${allShades.length} shades · ${allScenes.length} scenes` : 'Your favorite scenes and shades, in one place.';
+    intro.textContent = 'Your everyday controls, all in one place.';
     content.appendChild(intro);
     if (!appState?.snapshot) {
         const empty = document.createElement('div'); empty.className = 'home-empty';
@@ -172,19 +186,44 @@ function showHome() {
         }
         content.appendChild(empty); return;
     }
-    function section(label) { const heading = document.createElement('h3'); heading.className = 'shade-section-label'; heading.textContent = label; content.appendChild(heading); }
-    section('Favorite scenes');
+    const summary = document.createElement('div'); summary.className = 'home-summary-grid'; content.appendChild(summary);
+    const overview = document.createElement('section'); overview.className = 'home-overview';
+    const details = document.createElement('div'); details.className = 'overview-copy';
+    const heading = document.createElement('h3'); heading.textContent = 'Whole home'; details.appendChild(heading);
+    const status = document.createElement('p'); status.id = 'homeOverviewStatus'; details.appendChild(status);
+    const quick = createBulkShadeToolbar(allShades.map(shade => shade.id), 'Whole home'); if (quick) details.appendChild(quick);
+    overview.appendChild(details);
+    const illustration = document.createElement('div'); illustration.className = 'overview-window'; illustration.setAttribute('aria-hidden','true');
+    illustration.innerHTML = '<div class="overview-sun"></div><div class="overview-slats"></div>'; overview.appendChild(illustration); summary.appendChild(overview);
+    const scenes = document.createElement('section'); scenes.className = 'home-favorite-scenes';
+    const scenesTitle = document.createElement('h3'); scenesTitle.textContent = 'Favorite scenes'; scenes.appendChild(scenesTitle);
     const sceneGrid = document.createElement('div'); sceneGrid.className = 'scene-tile-grid';
     for (const scene of allScenes.filter(item => isFavoriteSceneId(item.id))) sceneGrid.appendChild(buildSceneTile(scene));
     if (!sceneGrid.children.length) { const note = document.createElement('p'); note.textContent = 'Star a scene in Scenes to keep it here and in the tray menu.'; sceneGrid.appendChild(note); }
-    content.appendChild(sceneGrid);
-    section('Pinned shades');
+    scenes.appendChild(sceneGrid); summary.appendChild(scenes);
+    const pinsHeader = document.createElement('div'); pinsHeader.className = 'home-section-heading';
+    const pinsTitle = document.createElement('h3'); pinsTitle.textContent = 'Pinned shades'; pinsHeader.appendChild(pinsTitle);
+    const manage = document.createElement('button'); manage.type = 'button'; manage.className = 'text-action'; manage.textContent = 'Browse rooms →'; manage.addEventListener('click',fetchAndShowRooms); pinsHeader.appendChild(manage); content.appendChild(pinsHeader);
     const shadeGrid = document.createElement('div'); shadeGrid.className = 'shade-tile-grid';
     for (const shade of allShades.filter(item => appState.favorites.shadeIds.includes(item.id))) shadeGrid.appendChild(buildShadeTile(shade));
     if (!shadeGrid.children.length) { const note = document.createElement('p'); note.textContent = 'Use the star on a shade in Blinds to pin its controls here.'; shadeGrid.appendChild(note); }
     content.appendChild(shadeGrid);
+    const roomsHeader = document.createElement('div'); roomsHeader.className = 'home-section-heading';
+    const roomsTitle = document.createElement('h3'); roomsTitle.textContent = 'Your rooms'; roomsHeader.appendChild(roomsTitle);
+    const browse = document.createElement('button'); browse.type = 'button'; browse.className = 'text-action'; browse.textContent = 'All rooms →'; browse.addEventListener('click',fetchAndShowRooms); roomsHeader.appendChild(browse);content.appendChild(roomsHeader);
+    const roomGrid = document.createElement('div'); roomGrid.className = 'home-room-grid';
+    for (const room of sortRoomsForDisplay(allRooms)) {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'home-room-card';
+        button.style.setProperty('--room-accent', colors[room.color] || 'var(--accent)');
+        button.appendChild(createRoomTypeIconElement(room.ptName));
+        const name = document.createElement('strong'); name.textContent = room.ptName; button.appendChild(name);
+        const count = document.createElement('span'); const shades = allShades.filter(shade => shade.roomId === room.id);
+        count.textContent = `${shades.length} ${shades.length === 1 ? 'shade' : 'shades'}`; button.appendChild(count);
+        button.addEventListener('click', () => navigateToRoomShades(room)); roomGrid.appendChild(button);
+    }
+    content.appendChild(roomGrid);
     for (const shade of allShades) updateShadeBatteryRowInDom(shade.id);
-    updateSceneButtons(); updateCommandAvailability(); updateNavigation();
+    updateSceneButtons(); updateCommandAvailability(); updateHomeSummary(); updateNavigation();
 }
 async function bootstrap() {
     api.onState(applyState); api.onNotice(showSceneRunToast);
@@ -202,7 +241,7 @@ async function bootstrap() {
 }
 // Modals contain keyboard focus and make the app behind them noninteractive.
 const basePushModal = pushModalScrollLock, basePopModal = popModalScrollLock;
-pushModalScrollLock = () => { basePushModal(); for (const el of document.querySelectorAll('#content,.bottom-nav,.top-buttons,#connectionHealthBar,#demoModeBar')) el.inert = true; };
+pushModalScrollLock = () => { basePushModal(); for (const el of document.querySelectorAll('#content,.bottom-nav,.top-buttons,.command-search,#connectionHealthBar,#demoModeBar')) el.inert = true; };
 popModalScrollLock = () => { basePopModal(); if (!modalScrollLock.depth) for (const el of document.querySelectorAll('[inert]')) el.inert = false; };
 document.addEventListener('keydown', event => {
     if (event.key !== 'Tab') return;

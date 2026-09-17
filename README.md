@@ -2,7 +2,7 @@
 
 A local desktop companion for Hunter Douglas PowerView Gen 3. Control rooms, visual shade positions and existing gateway scenes from your computer.
 
-This update carries the newer local app into the GitHub repository and preserves its draggable single/dual shade graphics, Jog, presets, scenes, light/dark themes, room sorting, shortcuts, live events, discovery and tray menu.
+This update carries the newer local app into GitHub with a redesigned desktop interface: a persistent sidebar, warm light and dark themes, compact shade graphics, Home controls and search. It retains draggable single/dual shade controls, Jog, presets, scenes, room sorting, shortcuts, live events, discovery and the tray menu.
 
 ![Home with favorite scenes and pinned shades](docs/screenshots/home-light.png)
 
@@ -17,9 +17,9 @@ npm run demo
 
 Demo mode uses simulated devices and a separate settings profile. To connect your home, run `npm start`, open Settings and enter the primary Gen 3 gateway address or use discovery. Only a verified connection replaces the saved address. Existing `PowerView` config and preferences migrate automatically; the old preferences file is retained.
 
-Home combines favorite scenes with pinned shades. Blinds opens the room grid; Scenes lists your gateway scenes. Shade presets use **percent closed**, matching the number field. A command acknowledgment is separate from the reported position. Stop acts immediately without a confirmation dialog. Room/whole-home movement retains a confirmation and reports partial failures.
+Home puts whole-home actions and favorite scenes above pinned shades, with room shortcuts below. Blinds opens the room grid; Scenes lists your gateway scenes. Search jumps to a room or shade, or runs a matching scene. Shade presets use **percent closed**, matching the number field. A command acknowledgment is separate from the reported position. Stop acts immediately without a confirmation dialog. Room/whole-home movement retains a confirmation and reports partial failures.
 
-Ctrl+B and Ctrl+S switch views; Ctrl+1–9 open rooms in the selected order. Escape closes overlays or returns from a room. Shade graphics support pointer interaction and keyboard adjustment. The tray runs favorite scenes through the same gateway connection, and Settings offers an optional close-to-tray preference.
+Command/Ctrl+K opens search; arrow keys and Enter select a result. Ctrl+B and Ctrl+S switch views; Ctrl+1–9 open rooms in the selected order. Escape closes search or overlays, or returns from a room. Shade graphics support pointer interaction and keyboard adjustment. The tray runs favorite scenes through the same gateway connection, and Settings offers an optional close-to-tray preference.
 
 ## Verify and build
 
