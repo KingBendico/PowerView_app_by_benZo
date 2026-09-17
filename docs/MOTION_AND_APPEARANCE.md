@@ -2,15 +2,19 @@
 
 The shade card separates the chosen destination from the device's movement. Dragging moves a dashed target and updates the target percentage. Releasing sends one command. Refreshes leave an active drag alone; cancelling a gesture sends nothing. Numeric entry and keyboard controls choose the same target. The solid fabric represents the latest reported position or clearly labeled estimated progress, so it no longer snaps to the destination and back to an older report.
 
-Every visual control has a visible grip at its moving edge, including fully open and closed shades. Curtains have vertical grips on their opening edges: two for a pair, one for a single-draw curtain. Grips follow the displayed physical position; dragging still sets the separate dashed target. Grabbing an inset grip preserves the starting position instead of jumping to the pointer location.
+Every visual control has a compact 26px white circular grip with slate-colored opposing arrows, a subtle border and a soft shadow, matching the supplied PowerView reference. Shades use up/down arrows; curtains use left/right arrows on their opening edges, with two grips for a pair and one for a single-draw curtain. Grips remain visible at fully open/closed positions and follow the displayed physical position; dragging still sets the separate dashed target. Grabbing an inset grip preserves the starting position instead of jumping to the pointer location.
 
-Dual-rail shades use **one centered, labelled grip** with a **Top rail / Bottom rail** selector directly below the window. The selected edge is highlighted. Selecting a rail sends no movement command; dragging anywhere in the preview, arrow keys, the numeric field, nudges and percentage buttons all control that selected rail. The position is measured down from the top of the window. Whole-shade Open, Close and Stop remain separately labelled actions.
+Dual-rail shades have **directly draggable edges**. When the edges are apart, each has a circular grip with a hover label and an accessible edge name, and the full width of each edge can be grabbed. When their hit areas would overlap, they share one centered grip: **pull up to raise the top edge, or down to lower the bottom edge**. The initial vertical pull chooses the edge once; reversing direction continues to control that edge. A resize recalculates whether the grips have enough space to separate.
 
-When fully raised, Bottom rail is selected and Top rail explains “Lower the bottom rail first.” When both rails are at the bottom, Top rail is selected and Bottom rail explains “Raise the top rail first.” Movement limits use reported positions, keep the rails from crossing and disable presets outside the available range. A selected rail remains selected through refreshes; if it becomes unable to move, the available rail is selected when no drag or numeric edit is active. The same single-handle interaction is used at every position.
+Grabbing a grip preserves the starting position. Taps, sideways jitter and unrelated clicks on the window send no command. Refreshes preserve a drag target, and release sends one command for the chosen edge. Pointer cancellation, Escape, lost capture or leaving the app discard the gesture. Movement limits use reported positions and keep the rails from crossing. At the top endpoint, the hint explains to pull down; at the bottom endpoint, it explains to pull up.
+
+Each separate grip supports arrow keys, Home and End. On the shared grip, Up/Left/Home operate the top edge and Down/Right/End operate the bottom edge. Keyboard focus follows the operated edge when the grips separate. **Fine adjustment** expands to show an independent numeric field for each edge, measured down from the top of the window, plus labelled bottom-edge nudges and percentage presets. Unavailable positions are disabled. Whole-shade Open, Close and Stop remain separately labelled actions.
 
 ![Fully raised dual-rail shade](screenshots/dual-rail-open.png)
 
-![Selected top rail in a narrow dark window](screenshots/dual-rail-narrow.png)
+![Direct edge controls and fine adjustment in a narrow dark window](screenshots/dual-rail-narrow.png)
+
+![Shared grip where the edges meet](screenshots/dual-rail-merged.png)
 
 ## Movement feedback
 

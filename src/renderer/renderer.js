@@ -85,6 +85,14 @@ function persistHubSnapshot() {
 
 let liveEventSource = null;
 const liveShadeTileRefs = new Map();
+let shadeResizeFrame;
+window.addEventListener('resize', () => {
+    if (shadeResizeFrame) return;
+    shadeResizeFrame = requestAnimationFrame(() => {
+        shadeResizeFrame = null;
+        for (const sync of liveShadeTileRefs.values()) sync();
+    });
+});
 /** Room id currently shown in `displayShadesInRoom` (for refresh after bulk commands). */
 let displayedRoomId = null;
 
@@ -647,8 +655,8 @@ function createShadeFineControlRow(shade, statusEl, control) {
     if (statusId) {
         minusBtn.setAttribute('aria-describedby', statusId);
     }
-    minusBtn.addEventListener('click', () => control?.nudgeRail ? control.nudgeRail(-8) : nudgeShadePrimaryGatewayDelta(shade.id, 0.08, statusEl));
-    if (control?.nudgeRail) minusBtn.dataset.railStep = '-8';
+    minusBtn.addEventListener('click', () => control?.nudgeBottomRail ? control.nudgeBottomRail(-8) : nudgeShadePrimaryGatewayDelta(shade.id, 0.08, statusEl));
+    if (control?.nudgeBottomRail) minusBtn.dataset.railStep = '-8';
 
     const plusBtn = document.createElement('button');
     plusBtn.type = 'button';
@@ -659,8 +667,8 @@ function createShadeFineControlRow(shade, statusEl, control) {
     if (statusId) {
         plusBtn.setAttribute('aria-describedby', statusId);
     }
-    plusBtn.addEventListener('click', () => control?.nudgeRail ? control.nudgeRail(8) : nudgeShadePrimaryGatewayDelta(shade.id, -0.08, statusEl));
-    if (control?.nudgeRail) plusBtn.dataset.railStep = '8';
+    plusBtn.addEventListener('click', () => control?.nudgeBottomRail ? control.nudgeBottomRail(8) : nudgeShadePrimaryGatewayDelta(shade.id, -0.08, statusEl));
+    if (control?.nudgeBottomRail) plusBtn.dataset.railStep = '8';
 
     const presets = [
         { label: '25%', gw: 0.75 },
@@ -670,7 +678,7 @@ function createShadeFineControlRow(shade, statusEl, control) {
     const presetWrap = document.createElement('div');
     presetWrap.className = 'shade-tile-preset-chips';
     presetWrap.setAttribute('role', 'group');
-    presetWrap.setAttribute('aria-label', `${name}, ${control?.setRailPosition ? 'selected rail position' : 'percent closed'} presets`);
+    presetWrap.setAttribute('aria-label', `${name}, ${control?.setBottomRailPosition ? 'bottom edge position from top' : 'percent closed'} presets`);
     presets.forEach(({ label, gw }) => {
         const b = document.createElement('button');
         b.type = 'button';
@@ -684,8 +692,8 @@ function createShadeFineControlRow(shade, statusEl, control) {
         if (statusId) {
             b.setAttribute('aria-describedby', statusId);
         }
-        b.addEventListener('click', () => control?.setRailPosition ? control.setRailPosition(100 - gw * 100) : moveShadeToGatewayPrimary(shade.id, gw, statusEl));
-        if (control?.setRailPosition) b.dataset.railValue = String(100 - gw * 100);
+        b.addEventListener('click', () => control?.setBottomRailPosition ? control.setBottomRailPosition(100 - gw * 100) : moveShadeToGatewayPrimary(shade.id, gw, statusEl));
+        if (control?.setBottomRailPosition) b.dataset.railValue = String(100 - gw * 100);
         presetWrap.appendChild(b);
     });
 
@@ -1462,7 +1470,9 @@ function buildShadeTile(shade) {
             body.appendChild(liveControl.root); liveShadeTileRefs.set(shade.id, liveControl.sync);
         }
 
-        if (shade.controls.known && !['overlapped', 'tilt'].includes(shade.controls.kind)) body.appendChild(createShadeFineControlRow(shade, statusEl, liveControl));
+        if (shade.controls.known && !['overlapped', 'tilt'].includes(shade.controls.kind)) {
+            (liveControl?.fineActionsContainer || body).appendChild(createShadeFineControlRow(shade, statusEl, liveControl));
+        }
         if (!shade.controls.known) {
             const note = document.createElement('p'); note.textContent = 'This shade type is not supported yet.'; body.appendChild(note);
         } else {

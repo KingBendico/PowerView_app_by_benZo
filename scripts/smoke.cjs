@@ -146,60 +146,207 @@ async function run() {
     assert.equal(await js('document.getElementById("shade-11-pct-closed").value'),'75');
     await js('document.dispatchEvent(new PointerEvent("pointercancel",{pointerId:80,bubbles:true}))');
   });
-  await check('type 9 preserves both rail choices and selected-rail keyboard operation', async () => {
+  await check('type 9 exposes the two physical edges directly and keeps independent keyboard control', async () => {
     await js('navigateToRoomShades(allRooms.find(r=>r.id==="3"))');
     assert.equal(await js('document.querySelectorAll(".shade-unified-dual").length'), 2);
-    await js(`document.querySelector('[data-shade-id="31"] [data-rail="secondary"]').click(); document.querySelector('[data-shade-id="31"] .shade-handle').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))`);
+    assert.equal(await js('document.querySelectorAll("[data-rail]").length'), 0);
+    assert.equal(await js(`document.querySelectorAll('[data-shade-id="31"] .shade-handle:not([hidden])').length`), 2);
+    await js(`document.querySelector('[data-shade-id="31"] .shade-handle[data-axis="secondary"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))`);
     await until(async () => await js('allShades.find(s=>s.id==="31").positions.secondary') === .21);
+    assert.equal(runtime.getController().shade('31').positions.primary,0);
+    assert.equal(await js('document.querySelector(".dual-rail-fine").open'),false);
   });
-  await check('one labelled grip defaults to the movable rail and selecting another rail sends no command', async () => {
-    await js("api.moveShade({id:'32',positions:{primary:100,secondary:0}})");
+  // Keep the real IPC/events/movement path, with shorter demo trips for the gesture matrix.
+  runtime.getController().client.fullTravelMs = 1000;
+  async function railPositions(primary, secondary) {
+    await js(`api.moveShade({id:'32',positions:{primary:${primary},secondary:${secondary}}})`);
     await until(()=>!runtime.getController().state.motions['32']); await wait(220);
-    await js(`window.railCard = document.querySelector('[data-shade-id="32"]'); window.railWindow = railCard.querySelector('.motion-window')`);
-    assert.equal(await js('railCard.querySelectorAll(".shade-handle").length'),1);
-    assert.equal(await js('railWindow.dataset.activeRail'),'primary');
-    assert.equal(await js('railCard.querySelector("[data-rail=secondary]").disabled'),true);
-    assert.match(await js('railCard.querySelector(".dual-rail-hint").textContent'),/Lower the bottom rail first/);
-    await js('api.refresh()');
-    assert.equal(await js('railCard.querySelector("[data-rail=secondary]").disabled'),true);
-    await js(`(() => { const input=document.getElementById('shade-32-rail-position'); input.value='55'; input.dispatchEvent(new Event('change')); })()`);
-    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.primary === 45); await wait(220);
-    const intents=[]; const listener=event=>intents.push(event); runtime.getController().on('intent',listener);
+  }
+  await js(`window.railCard=document.querySelector('[data-shade-id="32"]'); window.railWindow=railCard.querySelector('.motion-window');
+    window.beginRailDrag=(axis='merged')=>{
+      const grip=railWindow.querySelector('.shade-handle[data-axis="'+axis+'"]'), rect=grip.getBoundingClientRect();
+      window.railStart={x:rect.left+rect.width/2,y:rect.top+rect.height/2};
+      grip.dispatchEvent(new PointerEvent('pointerdown',{pointerId:88,button:0,clientX:railStart.x,clientY:railStart.y,bubbles:true}));
+    };
+    window.moveRailDrag=(dx,dy,type='pointermove',id=88)=>document.dispatchEvent(new PointerEvent(type,{pointerId:id,clientX:railStart.x+dx,clientY:railStart.y+dy,bubbles:true})); void 0;`);
+  await check('meeting edges have one reachable grip at both endpoints; taps and sideways motion send nothing', async () => {
+    for (const bottom of [0,100]) {
+      await railPositions(100-bottom,bottom);
+      assert.equal(await js('railWindow.querySelectorAll(".shade-handle:not([hidden])").length'),1);
+      assert.equal(await js('railWindow.dataset.railsMerged'),'true');
+      assert.match(await js('railCard.querySelector(".dual-rail-hint").textContent'),bottom ? /Pull up/ : /Pull down/);
+      const bounds=await js(`(() => {const r=railWindow.getBoundingClientRect(),g=railWindow.querySelector('.shade-handle:not([hidden])').getBoundingClientRect();return {top:g.top-r.top,bottom:r.bottom-g.bottom};})()`);
+      assert.ok(bounds.top>=0 && bounds.bottom>=0,JSON.stringify(bounds));
+      const intents=[], listener=event=>intents.push(event); runtime.getController().on('intent',listener);
+      try {
+        await js('beginRailDrag(); moveRailDrag(1,1,"pointerup"); beginRailDrag(); moveRailDrag(20,3,"pointerup")');
+        await js(`beginRailDrag(); moveRailDrag(0,${bottom ? 20 : -20},'pointerup')`);
+        await js(`(() => {const r=railWindow.getBoundingClientRect(); railWindow.dispatchEvent(new PointerEvent('pointerdown',{pointerId:89,button:0,clientX:r.left+20,clientY:r.top+r.height/2,bubbles:true})); document.dispatchEvent(new PointerEvent('pointerup',{pointerId:89,bubbles:true}));})()`);
+        await js('api.refresh()');
+        assert.equal(intents.length,0);
+        assert.equal(runtime.getController().shade('32').positions.primary,100-bottom);
+        assert.equal(runtime.getController().shade('32').positions.secondary,bottom);
+      } finally { runtime.getController().removeListener('intent',listener); }
+    }
+  });
+  await check('pull direction chooses a meeting edge once, survives refresh and reversal, and sends one command on release', async () => {
+    for (const direction of [-1,1]) {
+      await railPositions(50,50);
+      const axis=direction<0?'secondary':'primary';
+      const intents=[], listener=event=>intents.push(event); runtime.getController().on('intent',listener);
+      try {
+        await js(`beginRailDrag(); moveRailDrag(0,railWindow.clientHeight*.1*${direction})`);
+        assert.equal(await js('railWindow.dataset.dragRail'),axis);
+        assert.equal(await js(`document.getElementById('shade-32-${axis}-position').value`),String(50+10*direction));
+        await js('api.refresh()');
+        assert.equal(await js(`document.getElementById('shade-32-${axis}-position').value`),String(50+10*direction));
+        assert.equal(await js('Number(railWindow.dataset.physicalPrimary)'),50);
+        assert.equal(await js('Number(railWindow.dataset.physicalSecondary)'),50);
+        await js(`moveRailDrag(0,-railWindow.clientHeight*.1*${direction})`);
+        assert.equal(await js('railWindow.dataset.dragRail'),axis);
+        assert.equal(await js(`document.getElementById('shade-32-${axis}-position').value`),'50');
+        assert.equal(intents.length,0);
+        await js(`moveRailDrag(0,railWindow.clientHeight*.1*${direction},'pointerup')`);
+        await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions[axis]===40);
+        assert.equal(runtime.getController().shade('32').positions[axis==='primary'?'secondary':'primary'],50);
+        assert.equal(intents.length,1);
+      } finally { runtime.getController().removeListener('intent',listener); }
+    }
+  });
+  await check('pointer cancellation, Escape, focus loss and lost capture discard a rail drag', async () => {
+    await railPositions(50,50);
+    const intents=[], listener=event=>intents.push(event); runtime.getController().on('intent',listener);
     try {
-      await js('railCard.querySelector("[data-rail=secondary]").click(); api.refresh()');
-      assert.equal(await js('railWindow.dataset.activeRail'),'secondary');
-      assert.equal(await js('railCard.querySelector(".dual-rail-grip-label").textContent'),'Top rail');
-      assert.equal(await js('document.getElementById("shade-32-rail-position").max'),'55');
-      assert.equal(await js('railCard.querySelector("[data-rail-value=\\"75\\"]").disabled'),true);
+      for (const cancel of [
+        'moveRailDrag(0,0,"pointercancel")',
+        'window.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true,cancelable:true}))',
+        'window.dispatchEvent(new Event("blur"))',
+        'railWindow.dispatchEvent(new PointerEvent("lostpointercapture",{pointerId:88}))',
+      ]) {
+        await js('beginRailDrag(); moveRailDrag(0,-railWindow.clientHeight*.1); moveRailDrag(0,20,"pointerup",99)');
+        assert.equal(await js('railWindow.dataset.dragRail'),'secondary');
+        await js(cancel);
+        await js('moveRailDrag(0,-30,"pointerup")');
+        assert.equal(await js('railWindow.classList.contains("shade-window-dragging")'),false);
+        assert.equal(await js('railWindow.querySelector(".target-secondary").hidden'),true);
+        assert.equal(await js('currentMainView'),'room-shades');
+      }
+      await js('api.refresh()');
       assert.equal(intents.length,0);
+      assert.equal(runtime.getController().shade('32').positions.secondary,50);
     } finally { runtime.getController().removeListener('intent',listener); }
-    await js('railCard.querySelector("[data-rail-value=\\"25\\"]").click()');
-    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.secondary === 25);
-    assert.equal(runtime.getController().shade('32').positions.primary,45);
   });
-  await check('selected rail controls dragging, keyboard and limits without moving the other rail', async () => {
-    await wait(220);
-    await js(`window.railRect=railWindow.getBoundingClientRect(); railWindow.dispatchEvent(new PointerEvent('pointerdown',{pointerId:87,button:0,clientX:railRect.left+30,clientY:railRect.top+railRect.height*.9,bubbles:true}))`);
-    assert.equal(await js('railWindow.dataset.activeRail'),'secondary');
-    assert.equal(await js('document.getElementById("shade-32-rail-position").value'),'55');
-    await js('document.dispatchEvent(new PointerEvent("pointercancel",{pointerId:87,bubbles:true}))');
+  await check('separate edges drag independently across the full rail width and stop at the other rail', async () => {
+    await railPositions(15,15);
+    assert.equal(await js('railWindow.querySelectorAll(".shade-handle:not([hidden])").length'),2);
+    await js(`(() => {const r=railWindow.getBoundingClientRect(); window.railStart={x:r.left+railWindow.clientLeft+8,y:r.top+railWindow.clientTop+railWindow.clientHeight*.15}; railWindow.dispatchEvent(new PointerEvent('pointerdown',{pointerId:88,button:0,clientX:railStart.x,clientY:railStart.y,bubbles:true})); moveRailDrag(0,railWindow.clientHeight*.1,'pointerup');})()`);
+    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.secondary===25); await wait(220);
+    assert.equal(runtime.getController().shade('32').positions.primary,15);
+    await js('beginRailDrag("primary"); moveRailDrag(0,-railWindow.clientHeight*.1,"pointerup")');
+    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.primary===25); await wait(220);
     assert.equal(runtime.getController().shade('32').positions.secondary,25);
-    await js(`window.selectedGrip=railWindow.querySelector('.shade-handle'); window.selectedRect=selectedGrip.getBoundingClientRect();
-      selectedGrip.dispatchEvent(new PointerEvent('pointerdown',{pointerId:88,button:0,clientX:selectedRect.left+selectedRect.width/2,clientY:selectedRect.top+selectedRect.height/2,bubbles:true}));
-      document.dispatchEvent(new PointerEvent('pointerup',{pointerId:88,clientX:selectedRect.left+selectedRect.width/2,clientY:selectedRect.top+selectedRect.height/2+railRect.height*.1,bubbles:true}));`);
-    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.secondary === 35);
-    assert.equal(runtime.getController().shade('32').positions.primary,45);
-    await js('selectedGrip.dispatchEvent(new KeyboardEvent("keydown",{key:"Home",bubbles:true}))');
-    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.secondary === 0);
-    assert.equal(runtime.getController().shade('32').positions.primary,45);
-    await js('railCard.querySelector("[data-rail=primary]").click()');
-    await js("api.moveShade({id:'32',positions:{primary:0,secondary:100}})");
-    await until(()=>!runtime.getController().state.motions['32']); await wait(220);
-    assert.equal(await js('railWindow.dataset.activeRail'),'secondary');
-    assert.equal(await js('railCard.querySelector("[data-rail=primary]").disabled'),true);
-    assert.match(await js('railCard.querySelector(".dual-rail-hint").textContent'),/Raise the top rail first/);
-    await js('api.refresh()');
-    assert.equal(await js('railCard.querySelector("[data-rail=primary]").disabled'),true);
+    await js('beginRailDrag("secondary"); moveRailDrag(0,railWindow.clientHeight)');
+    assert.equal(await js('document.getElementById("shade-32-secondary-position").value'),'75');
+    await js('moveRailDrag(0,0,"pointercancel"); beginRailDrag("primary"); moveRailDrag(0,-railWindow.clientHeight)');
+    assert.equal(await js('document.getElementById("shade-32-primary-position").value'),'25');
+    await js('moveRailDrag(0,0,"pointercancel")');
+    assert.equal(runtime.getController().shade('32').positions.secondary,25);
+    assert.equal(runtime.getController().shade('32').positions.primary,25);
+  });
+  await check('fine adjustment has independent fields and bottom-edge shortcuts respect the top-edge limit', async () => {
+    await js('railCard.querySelector(".dual-rail-fine summary").click()');
+    assert.equal(await js('railCard.querySelector(".dual-rail-fine").open'),true);
+    await js('document.getElementById("shade-32-secondary-position").value="40"; document.getElementById("shade-32-secondary-position").dispatchEvent(new Event("change"))');
+    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.secondary===40);
+    assert.equal(runtime.getController().shade('32').positions.primary,25);
+    assert.equal(await js('document.getElementById("shade-32-primary-position").min'),'40');
+    assert.equal(await js(`railCard.querySelector('[data-rail-value="25"]').disabled`),true);
+    await js(`railCard.querySelector('[data-rail-value="50"]').click()`);
+    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.primary===50);
+    for (const primary of [58,60]) {
+      await js(`railCard.querySelector('[data-rail-step="-8"]').click()`);
+      await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.primary===primary);
+    }
+    assert.equal(runtime.getController().shade('32').positions.secondary,40);
+    assert.equal(await js(`railCard.querySelector('[data-rail-step="-8"]').disabled`),true);
+    await js('railCard.querySelector(".dual-rail-fine summary").click()');
+  });
+  await check('meeting-edge keyboard controls choose direction and keep focus when the grip separates', async () => {
+    await railPositions(50,50);
+    await js(`railWindow.querySelector('[data-axis="merged"]').focus(); document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}))`);
+    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.secondary===49);
+    assert.equal(runtime.getController().shade('32').positions.primary,50);
+    await js(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))`);
+    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.primary===49);
+    assert.equal(runtime.getController().shade('32').positions.secondary,49);
+    await js(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))`);
+    await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions.secondary===0); await wait(220);
+    assert.equal(await js('document.activeElement.dataset.axis'),'secondary');
+    assert.equal(await js('document.activeElement.hidden'),false);
+  });
+  await check('native mouse input reaches grips and full-width edges with working pointer capture', async () => {
+    win.show(); win.focus(); await wait(150);
+    for (const { primary, secondary, axis, delta, edge } of [
+      { primary:100, secondary:0, axis:'primary', delta:.2 },
+      { primary:0, secondary:100, axis:'secondary', delta:-.2 },
+      { primary:50, secondary:50, axis:'secondary', delta:-.2 },
+      { primary:10, secondary:10, axis:'primary', delta:-.15 },
+      { primary:10, secondary:10, axis:'secondary', delta:.15, edge:true },
+    ]) {
+      await railPositions(primary,secondary);
+      const point=await js(`(() => {
+        const grip=railWindow.querySelector('.shade-handle[data-axis="'+(railWindow.dataset.railsMerged==='true'?'merged':'${axis}')+'"]');
+        const r=railWindow.getBoundingClientRect(),g=grip.getBoundingClientRect();
+        railWindow.addEventListener('pointerdown',event=>{
+          window.nativeRailPointer={id:event.pointerId,trusted:event.isTrusted};
+          railWindow.addEventListener('pointermove',move=>{
+            nativeRailPointer.captured=move.isTrusted && railWindow.hasPointerCapture(move.pointerId);
+            nativeRailPointer.axis=railWindow.dataset.dragRail;
+          },{once:true});
+        },{once:true});
+        return {x:Math.round(${edge ? 'r.left+railWindow.clientLeft+8' : 'g.left+g.width/2'}),
+          y:Math.round(${edge ? `r.top+railWindow.clientTop+railWindow.clientHeight*${secondary/100}` : 'g.top+g.height/2'}),height:railWindow.clientHeight};
+      })()`);
+      const dy=Math.round(point.height*delta), start=axis==='primary'?100-primary:secondary;
+      const expected=Math.round(start+dy/point.height*100);
+      const intents=[],listener=event=>intents.push(event); runtime.getController().on('intent',listener);
+      try {
+        win.focus();
+        win.webContents.sendInputEvent({type:'mouseMove',x:point.x,y:point.y});
+        win.webContents.sendInputEvent({type:'mouseDown',x:point.x,y:point.y,button:'left',clickCount:1});
+        win.webContents.sendInputEvent({type:'mouseMove',x:point.x,y:point.y+dy,modifiers:['leftButtonDown']});
+        win.webContents.sendInputEvent({type:'mouseUp',x:point.x,y:point.y+dy,button:'left',clickCount:1});
+        await until(()=>!runtime.getController().state.motions['32'] && runtime.getController().shade('32').positions[axis]===(axis==='primary'?100-expected:expected));
+        assert.equal(await js('nativeRailPointer.trusted && nativeRailPointer.captured'),true);
+        assert.equal(await js('nativeRailPointer.axis'),axis);
+        assert.equal(runtime.getController().shade('32').positions[axis==='primary'?'secondary':'primary'],axis==='primary'?secondary:primary);
+        assert.equal(intents.length,1);
+      } finally { runtime.getController().removeListener('intent',listener); }
+    }
+  });
+  await check('edge grips stay separated when visible and adapt to narrow layouts with readable fine adjustment', async () => {
+    const output=path.resolve(__dirname,'../docs/screenshots');
+    win.showInactive();
+    await railPositions(100,0);
+    await js('document.activeElement.blur(); window.scrollTo(0,0)');
+    fs.writeFileSync(path.join(output,'dual-rail-open.png'),(await win.webContents.capturePage()).toPNG());
+    await railPositions(60,0);
+    assert.equal(await js('railWindow.dataset.railsMerged'),'true');
+    win.setSize(360,760); await wait(250);
+    assert.equal(await js('railWindow.dataset.railsMerged'),'false');
+    assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'),true);
+    const gap=await js(`(() => {const a=railWindow.querySelector('[data-axis="secondary"]').getBoundingClientRect(),b=railWindow.querySelector('[data-axis="primary"]').getBoundingClientRect();return b.top-a.bottom;})()`);
+    assert.ok(gap>=6,`Overlapping edge controls: ${gap}`);
+    await js('api.setPrefs({...prefs,theme:"dark"}); railCard.querySelector(".dual-rail-fine summary").click(); railCard.scrollIntoView({block:"start"})');
+    await wait(200);
+    assert.equal(await js('document.documentElement.scrollWidth<=innerWidth'),true);
+    fs.writeFileSync(path.join(output,'dual-rail-narrow.png'),(await win.webContents.capturePage()).toPNG());
+    win.setSize(1080,860); await js('api.setPrefs({...prefs,theme:"light"}); railCard.querySelector(".dual-rail-fine summary").click()');
+    await railPositions(10,20); await js('window.scrollTo(0,0)'); await wait(200);
+    fs.writeFileSync(path.join(output,'dual-rail-top.png'),(await win.webContents.capturePage()).toPNG());
+    await railPositions(50,50);
+    fs.writeFileSync(path.join(output,'dual-rail-merged.png'),(await win.webContents.capturePage()).toPNG());
+    win.hide();
   });
   await check('Bedroom left allows curtain selection and replaces demo rails with working curtain controls', async () => {
     await js('document.getElementById("shade-appearance-31").click()');
@@ -249,10 +396,15 @@ async function run() {
     await js('document.querySelector("#shadeAppearanceDialog .appearance-save").click()');
     await until(async () => !await js('!!document.getElementById("shadeAppearanceDialog")'));
     assert.equal(await js('allShades.find(s=>s.id==="31").controls.kind'), 'dual-rail');
-    assert.equal(await js('document.getElementById("shade-name-31").closest("article").querySelectorAll(".shade-handle").length'), 1);
-    assert.equal(await js('document.getElementById("shade-name-31").closest("article").querySelectorAll("[data-rail]").length'), 2);
+    // The compact grips fit separately at the restored 24% fabric coverage.
+    assert.equal(await js('document.getElementById("shade-name-31").closest("article").querySelectorAll(".shade-handle:not([hidden])").length'), 2);
+    assert.equal(await js('document.getElementById("shade-name-31").closest("article").querySelectorAll("[data-rail-input]").length'), 2);
+    assert.equal(await js('document.getElementById("shade-name-31").closest("article").querySelectorAll("[data-rail]").length'), 0);
     assert.equal(runtime.getController().state.config.appearances.demo['31'], undefined);
   });
+  // Appearance resets recreate the demo client. Shorten later trips again;
+  // long-trip animation and Stop have already been verified above.
+  runtime.getController().client.fullTravelMs = 1000;
   await check('pinning a shade places its controls on Home', async () => {
     await js('document.getElementById("shade-name-31").closest("article").querySelector(".scene-star").click()');
     await until(async () => await js('appState.favorites.shadeIds.includes("31")'));
@@ -295,6 +447,9 @@ async function run() {
     assert.equal(await js('document.getElementById("searchResults").hidden'), true);
   });
   await check('Saved controls captures named positions without movement and saves a custom group', async () => {
+    // These async flows use scripted DOM actions; keep their dialogs out of the
+    // user's way so desktop input cannot close one mid-check.
+    win.hide();
     await until(() => !runtime.getController().state.motions['21'] && !runtime.getController().state.motions['22']);
     await js('document.getElementById("btn-home").click(); window.savedControls.open("presets")');
     await until(() => js('!!document.querySelector("#savedControlsDialog[open]")'));
@@ -337,7 +492,10 @@ async function run() {
     await js('api.shadeAction({id:"21",action:"stop"})');
     assert.equal(runtime.getSavedControls().getState().timers.at(-1).status,'cancelled');
     await js('document.querySelector("[data-tab=presets]").click(); document.querySelector("#savedControlsDialog .shortcuts-scroll").scrollTop=0; document.activeElement.blur()');
+    // A previously shown then hidden macOS window may not paint a capture.
+    win.showInactive();
     await wait(200); fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/saved-controls.png'),(await win.webContents.capturePage()).toPNG());
+    win.hide();
     win.setSize(360,760); await wait(200);
     assert.equal(await js('document.querySelector("#savedControlsDialog .shortcuts-scroll").scrollWidth <= document.querySelector("#savedControlsDialog .shortcuts-scroll").clientWidth'),true);
     assert.equal(await js('document.querySelector("#savedControlsDialog .shortcuts-save").getBoundingClientRect().bottom < window.innerHeight'),true);
@@ -345,7 +503,12 @@ async function run() {
     win.setSize(1080,860);
   });
   let shortcutBindings;
+  const hideWindow = async () => {
+    if (win.isVisible()) await new Promise(resolve => { win.once('hide', resolve); win.hide(); });
+  };
   const openShortcuts = async () => {
+    if (!win.isVisible()) await new Promise(resolve => { win.once('show', resolve); win.show(); });
+    win.focus();
     await js('if (!uiOverlays.settingsIsOpen()) document.getElementById("settingsButton").click(); document.getElementById("keyboardShortcutsButton").click()');
     await until(() => js('!!document.querySelector("#keyboardShortcutsDialog[open]")'));
   };
@@ -400,6 +563,8 @@ async function run() {
   });
   await check('background shortcut routing moves demo shades and settles at the requested percentage', async () => {
     await js('uiOverlays.settingsClose(); navigateToRoomShades(allRooms.find(room=>room.id==="4"))');
+    await hideWindow();
+    await until(() => !win.isFocused());
     assert.equal(win.isFocused(), false);
     assert.equal(await runtime.getShortcuts().trigger(shortcutBindings[2].id), true);
     await until(() => !runtime.getController().state.motions['41']);
@@ -438,9 +603,11 @@ async function run() {
   });
   await check('app shortcut shows PowerView and hiding its editor resumes native keys', async () => {
     const manager = runtime.getShortcuts(), binding = shortcutBindings.find(item => item.target === 'app');
-    assert.equal(await manager.trigger(binding.id), true); await until(() => win.isVisible());
+    await hideWindow();
+    const shown = new Promise(resolve => win.once('show', resolve));
+    assert.equal(await manager.trigger(binding.id), true); await shown;
     await openShortcuts(); assert.equal(manager.editing, true);
-    win.hide(); await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
+    await hideWindow(); await until(() => js('!document.getElementById("keyboardShortcutsDialog")'));
     assert.equal(manager.editing, false); assert.equal(globalShortcut.isRegistered('Control+Shift+C'), true);
     await js('uiOverlays.settingsClose()');
   });
