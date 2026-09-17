@@ -4,8 +4,9 @@ const { normalizeAddress } = require('./gateway-client');
 const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, roomSort: 'default', prefsMigrated: false });
 function cleanAppearance(value) {
   if (!value || !['shade', 'curtain'].includes(value.kind) || !['pleated', 'roller', 'slatted'].includes(value.fabric)
-    || value.color !== null && !/^#[a-f0-9]{6}$/i.test(value.color)) throw new Error('Choose a valid shade style and fabric color.');
-  return { kind: value.kind, fabric: value.fabric, color: value.color };
+    || value.color !== null && !/^#[a-f0-9]{6}$/i.test(value.color)
+    || value.draw !== undefined && !['split', 'left', 'right'].includes(value.draw)) throw new Error('Choose a valid shade style, curtain opening and fabric color.');
+  return { kind: value.kind, fabric: value.fabric, color: value.color, draw: value.draw ?? 'split' };
 }
 function cleanConfig(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Invalid settings');

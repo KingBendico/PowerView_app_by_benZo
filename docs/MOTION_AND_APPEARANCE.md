@@ -14,13 +14,16 @@ Demo mode simulates travel and emits the same motion-event shape. It supports in
 
 ## Appearance settings
 
-Select the palette button beside a shade's name. Choose shades/blinds or split curtains, then a fabric style and color. The preview updates immediately; Save appearance applies it to the card and persists it for that device and gateway. Cancel leaves the previous appearance intact. Reset restores the default when saved.
+Select the palette button beside a shade's name. Choose shades/blinds or curtains, then a fabric style and color. Curtains offer a center-opening pair or a single-draw curtain that opens and stacks on the left or right. The preview updates immediately; Save appearance applies it to the card and persists it for that device and gateway. Cancel leaves the previous appearance intact. Reset restores the default when saved. Existing saved curtains default to the center-opening pair.
 
 - Shades/blinds: pleated, smooth roller or slatted fabric; vertical target dragging.
-- Curtains: soft folds, linen or fine folds; horizontal target dragging with both panels moving together.
+- Curtains: soft folds, linen or fine folds; horizontal dragging and animation follow the chosen opening. A pair moves both panels together; a single curtain spans the window from its selected stacking side. Left/right arrow keys follow the fabric edge, while Home opens fully and End closes fully.
 - Colors: Natural, Sage, Clay, Charcoal and Mist, a custom color picker, or the theme color.
-- Two-rail shades: texture and color choices retain both rail controls; curtain mode is unavailable for these devices.
+- Real two-rail shades: texture and color choices retain both rail controls. The editor explains why curtain controls are unavailable for this mechanism.
+- Demo two-rail shades, including Bedroom left: Curtains switches the simulated mechanism to a curtain, preserving the uncovered area. Shades / blinds or Reset restores both rail controls. The choice survives restarting demo. Pending commands must finish sending before a mechanism switch; active travel is cleared when switching mechanisms.
 
-Appearance changes affect the drawing only. They send no motor command and do not change capability validation or the gateway's device type. The editor is available on the visual standard, top-down, vertical and dual-rail controls; tilt-only and overlapped mechanisms retain their existing controls. Single-sided curtains and additional stacking arrangements are possible future additions.
+Appearance changes send no motor command and do not change a real gateway's device type or capability validation. The demo may change its simulated mechanism to let every demo shade try curtain controls. The editor is available on the visual standard, top-down, vertical and dual-rail controls; tilt-only and overlapped mechanisms retain their existing controls.
 
 ![Appearance editor](screenshots/appearance-editor.png)
+
+![Single-draw curtain editor on Bedroom left](screenshots/single-draw-editor.png)

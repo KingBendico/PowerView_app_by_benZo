@@ -3,13 +3,14 @@ function createLiveShadeControl(shade, statusEl) {
     const dual = shade.controls.kind === 'dual-rail';
     const appearance = shadeAppearanceFor(shade);
     const curtains = appearance.kind === 'curtain' && !dual;
+    const curtainDraw = appearance.draw || 'split';
     const root = document.createElement('div');
     root.className = dual ? 'shade-unified-dual shade-unified-dual--tile motion-control' : 'shade-single-stack shade-single-tile motion-control';
     root.setAttribute('aria-live', 'off');
     const visual = document.createElement('div'); visual.className = 'shade-window-visual';
     visual.title = `Drag ${curtains ? 'horizontally' : 'vertically'} to choose a target. The fabric follows reported movement.`;
     const inner = document.createElement('div'); inner.className = 'shade-window-inner shade-window-inner--realistic motion-window';
-    inner.dataset.covering = curtains ? 'curtain' : 'shade'; inner.dataset.fabric = appearance.fabric;
+    inner.dataset.covering = curtains ? 'curtain' : 'shade'; inner.dataset.fabric = appearance.fabric; inner.dataset.draw = curtainDraw;
     if (appearance.color) inner.style.setProperty('--fabric-color', appearance.color);
     inner.innerHTML = '<div class="shade-window-glass shade-window-glass--realistic"></div><div class="shade-fabric motion-fabric"></div><div class="curtain-panel curtain-left"></div><div class="curtain-panel curtain-right"></div><div class="motion-target target-primary" hidden></div><div class="motion-target target-secondary" hidden></div>';
     visual.appendChild(inner); root.appendChild(visual);
@@ -74,7 +75,9 @@ function createLiveShadeControl(shade, statusEl) {
         if (valid) {
             const p = clamp(values.primary), s = dual ? Math.min(p, clamp(values.secondary)) : 0;
             fabric.style.top = `${s}%`; fabric.style.height = `${Math.max(0, p - s)}%`;
-            for (const panel of [leftCurtain, rightCurtain]) panel.style.width = `${4 + p * .46}%`;
+            const panels = curtainGeometry.panels(p, curtainDraw);
+            leftCurtain.style.width = `${panels.left}%`; rightCurtain.style.width = `${panels.right}%`;
+            leftCurtain.hidden = panels.left === 0; rightCurtain.hidden = panels.right === 0;
             inner.dataset.physicalPrimary = p.toFixed(2);
             if (dual) {
                 handles.secondary.style.top = `${s}%`; handles.primary.style.top = `${p}%`;
@@ -85,11 +88,12 @@ function createLiveShadeControl(shade, statusEl) {
         const showTarget = !!draft || !!target && Object.keys(target).length > 0;
         const suffix = inputsRow.querySelector('.shade-tile-pct-suffix');
         if (suffix) suffix.textContent = showTarget ? 'target % closed' : '% closed';
-        primaryMarker.hidden = !showTarget; secondaryMarker.hidden = !showTarget || (!dual && !curtains);
+        primaryMarker.hidden = !showTarget; secondaryMarker.hidden = !showTarget || (!dual && (!curtains || curtainDraw !== 'split'));
         if (showTarget) {
             if (curtains) {
-                primaryMarker.style.left = `${4 + chosen.primary * .46}%`;
-                secondaryMarker.style.right = `${4 + chosen.primary * .46}%`;
+                const panels = curtainGeometry.panels(chosen.primary, curtainDraw);
+                primaryMarker.style.left = `${curtainDraw === 'right' ? 100 - panels.right : panels.left}%`;
+                secondaryMarker.style.right = `${panels.right}%`;
             } else {
                 primaryMarker.style.top = `${chosen.primary}%`;
                 secondaryMarker.style.top = `${chosen.secondary}%`;
@@ -155,7 +159,7 @@ function createLiveShadeControl(shade, statusEl) {
     function chooseAt(event) {
         const { rect, axis, side } = drag;
         const fraction = curtains ? (event.clientX - rect.left) / rect.width : (event.clientY - rect.top) / rect.height;
-        const value = curtains ? ((side === 'left' ? fraction : 1 - fraction) * 100 - 4) / .46 : fraction * 100;
+        const value = curtains ? curtainGeometry.positionAt(fraction, curtainDraw, side) : fraction * 100;
         draft[axis] = bounded(value, axis, draft); sync();
     }
     function onMove(event) { if (drag && event.pointerId === drag.id) { event.preventDefault(); chooseAt(event); } }
@@ -195,7 +199,8 @@ function createLiveShadeControl(shade, statusEl) {
         handles[axis].addEventListener('keydown', event => {
             if (!canEdit() || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault(); draft = { ...selection() };
-            const next = event.key === 'Home' ? 0 : event.key === 'End' ? 100 : draft[axis] + (['ArrowUp','ArrowLeft'].includes(event.key) ? -1 : 1);
+            const horizontalReverse = curtains && curtainDraw === 'right' && ['ArrowLeft','ArrowRight'].includes(event.key) ? -1 : 1;
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? 100 : draft[axis] + (['ArrowUp','ArrowLeft'].includes(event.key) ? -1 : 1) * horizontalReverse;
             draft[axis] = bounded(next, axis, draft); commit(axis);
         });
     }

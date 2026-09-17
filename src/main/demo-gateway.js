@@ -1,9 +1,9 @@
 const { normalizeSnapshot, GatewayError } = require('./gateway-client');
-const { validatePositions } = require('./capabilities');
+const { capabilitiesFor, validatePositions } = require('./capabilities');
 const { project } = require('../shared/shade-motion');
 
 class DemoGateway {
-  constructor({ now = Date.now, latency = 180, fullTravelMs = 8000 } = {}) {
+  constructor({ now = Date.now, latency = 180, fullTravelMs = 8000, appearances = {} } = {}) {
     this.address = 'demo'; this.disposed = false;
     this.now = now; this.latency = latency; this.fullTravelMs = fullTravelMs; this.motions = new Map();
     this.data = {
@@ -24,13 +24,46 @@ class DemoGateway {
         { id: 105, ptName: 'Good night', roomIds: [1, 2, 3, 4] }],
       colors: { colors: ['#8c9c7a', '#c1a37c', '#9e92ad', '#829daa'] }, active: [],
     };
+    this.originalShades = new Map(this.data.shades.map(shade => [String(shade.id), structuredClone(shade)]));
+    this.railPositions = new Map();
+    for (const [id, appearance] of Object.entries(appearances)) {
+      if (this.originalShades.has(id)) this.setAppearance(id, appearance);
+    }
   }
   async wait() {
     await new Promise(resolve => setTimeout(resolve, this.latency));
     if (this.disposed) throw new GatewayError('Connection changed.', 'CANCELLED');
   }
   async identify() { return { address: 'demo', name: 'Demo home', role: 'Demo' }; }
-  async getSnapshot() { await this.wait(); this.sync(); return normalizeSnapshot(structuredClone(this.data), this.address); }
+  snapshot() {
+    this.sync(); const snapshot = normalizeSnapshot(structuredClone(this.data), this.address);
+    for (const shade of snapshot.shades) shade.demoOriginalKind = capabilitiesFor(this.originalShades.get(shade.id)).kind;
+    return snapshot;
+  }
+  async getSnapshot() { await this.wait(); return this.snapshot(); }
+  appearanceChangesType(id, appearance) {
+    const original = this.originalShades.get(id), shade = this.data.shades.find(item => String(item.id) === id);
+    if (!original || !shade || capabilitiesFor(original).kind !== 'dual-rail') return false;
+    return shade.type !== (appearance?.kind === 'curtain' ? 69 : original.type);
+  }
+  setAppearance(id, appearance) {
+    if (!this.appearanceChangesType(id, appearance)) return null;
+    this.sync();
+    const shade = this.data.shades.find(item => String(item.id) === id);
+    clearTimeout(this.motions.get(shade.id)?.timer); this.motions.delete(shade.id);
+    // A demo may change mechanism; preserve the uncovered area when converting.
+    if (appearance?.kind === 'curtain') {
+      this.railPositions.set(id, shade.positions.secondary);
+      shade.positions = { primary: Math.min(1, shade.positions.primary + shade.positions.secondary) };
+      shade.type = 69;
+    } else {
+      const opening = shade.positions.primary;
+      const secondary = Math.min(opening, this.railPositions.get(id) ?? this.originalShades.get(id).positions.secondary);
+      shade.positions = { primary: opening - secondary, secondary };
+      shade.type = this.originalShades.get(id).type;
+    }
+    return this.snapshot().shades.find(item => item.id === id);
+  }
   startEvents(onEvent, onStatus) { this.onEvent = onEvent; onStatus('open'); }
   emit(evt, shade, extra = {}) {
     if (!this.disposed) this.onEvent?.({ evt, id: shade.id, isoDate: new Date(this.now()).toISOString(),

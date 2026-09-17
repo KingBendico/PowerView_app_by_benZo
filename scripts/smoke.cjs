@@ -24,7 +24,18 @@ async function run() {
   win.webContents.on('console-message', event => { if (event.level === 'error') { errors.push(event.message); console.error('RENDERER:', event.message); } });
   const js = code => win.webContents.executeJavaScript(code).catch(error => { console.error('FAILED SCRIPT:', code); throw error; });
   await until(() => js('typeof appState !== "undefined" && appState?.connection.status === "demo" && document.querySelectorAll("[data-shade-id]").length === 2').catch(() => false));
-  async function check(name, fn) { await fn(); checks.push(name); console.log(`PASS ${name}`); }
+  async function check(name, fn) {
+    try { await fn(); checks.push(name); console.log(`PASS ${name}`); }
+    catch (error) {
+      console.error('UI STATE:', await js(`(() => { const dialog = document.querySelector('dialog[open]'); return dialog ? {
+        error: dialog.querySelector('[role=alert]')?.textContent,
+        invalid: [...dialog.querySelectorAll(':invalid')].map(el => ({ id: el.id, message: el.validationMessage })),
+        saveDisabled: dialog.querySelector('[type=submit]')?.disabled,
+        pending: appState.pending
+      } : null; })()`));
+      throw error;
+    }
+  }
   await check('isolated renderer, working preload, Home and demo banner', async () => {
     assert.deepEqual(await js('[typeof require, typeof process, typeof window.powerView.moveShade]'), ['undefined', 'undefined', 'function']);
     assert.equal(await js('document.getElementById("demoModeBar").hidden'), false);
@@ -85,8 +96,8 @@ async function run() {
     const before = runtime.getController().state.snapshot.shades[0].positions.primary;
     await js(`document.getElementById('shade-appearance-11').click(); document.querySelector('#shadeAppearanceDialog [value="curtain"]').click(); document.querySelector('#shadeAppearanceDialog [data-color="#b68471"]').click()`);
     await js('document.querySelector("#shadeAppearanceDialog .appearance-save").click()');
-    await until(async () => !await js('!!document.querySelector("dialog[open]")'));
-    assert.deepEqual(runtime.getController().state.config.appearances.demo['11'],{kind:'curtain',fabric:'pleated',color:'#b68471'});
+    await until(async () => !await js('!!document.getElementById("shadeAppearanceDialog")'));
+    assert.deepEqual(runtime.getController().state.config.appearances.demo['11'],{kind:'curtain',fabric:'pleated',color:'#b68471',draw:'split'});
     assert.equal(runtime.getController().state.snapshot.shades[0].positions.primary, before);
     assert.equal(await js('document.querySelector("[data-shade-id=\\"11\\"] .motion-window").dataset.covering'), 'curtain');
   });
@@ -106,6 +117,55 @@ async function run() {
     assert.equal(await js('document.querySelectorAll(".shade-unified-dual").length'), 2);
     await js('document.getElementById("shade-name-31").closest("article").querySelector(".shade-handle-rail").dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowDown",bubbles:true}))');
     await until(async () => await js('allShades.find(s=>s.id==="31").positions.secondary') === .21);
+  });
+  await check('Bedroom left allows curtain selection and replaces demo rails with working curtain controls', async () => {
+    await js('document.getElementById("shade-appearance-31").click()');
+    assert.equal(await js('document.querySelector("#shadeAppearanceDialog [value=curtain]").disabled'), false);
+    assert.equal(await js('document.getElementById("appearanceFabric").disabled'), false);
+    await js('document.querySelector("#shadeAppearanceDialog [value=curtain]").click(); document.querySelector("#shadeAppearanceDialog .appearance-save").click()');
+    await until(async () => !await js('!!document.getElementById("shadeAppearanceDialog")'));
+    assert.equal(await js('allShades.find(s=>s.id==="31").controls.kind'), 'vertical');
+    assert.equal(await js('document.getElementById("shade-31-pct-closed").value'), '79');
+    assert.equal(runtime.getController().state.motions['31'], undefined);
+    assert.equal(await js('document.querySelector("[data-shade-id=\\"31\\"] .motion-window").dataset.covering'), 'curtain');
+  });
+  await check('single-draw curtains preview, drag and animate toward the selected stacking side', async () => {
+    for (const draw of ['left', 'right']) {
+      await js(`document.getElementById('shade-appearance-31').click(); document.getElementById('appearanceDraw').value='${draw}'; document.getElementById('appearanceDraw').dispatchEvent(new Event('change'))`);
+      assert.equal(await js(`document.querySelector('#shadeAppearanceDialog .curtain-${draw === 'left' ? 'right' : 'left'}').hidden`), true);
+      assert.equal(await js(`document.querySelector('#shadeAppearanceDialog .curtain-${draw}').style.width`), '61.6%');
+      await js('document.querySelector("#shadeAppearanceDialog .appearance-save").click()');
+      await until(async () => !await js('!!document.getElementById("shadeAppearanceDialog")'));
+      const closed = draw === 'left' ? 50 : 25, fraction = draw === 'left' ? .52 : .72;
+      await js(`window.singleCurtain = document.querySelector('[data-shade-id="31"] .motion-window'); window.singleRect = singleCurtain.getBoundingClientRect();
+        singleCurtain.dispatchEvent(new PointerEvent('pointerdown',{pointerId:81,button:0,clientX:singleRect.left+singleRect.width*${fraction},clientY:singleRect.top+50,bubbles:true}));
+        document.dispatchEvent(new PointerEvent('pointerup',{pointerId:81,clientX:singleRect.left+singleRect.width*${fraction},clientY:singleRect.top+50,bubbles:true}));`);
+      await until(() => runtime.getController().state.motions['31']);
+      assert.equal(await js('document.getElementById("shade-31-pct-closed").value'), String(closed));
+      assert.equal(await js('singleCurtain.querySelector(".target-secondary").hidden'), true);
+      await until(() => !runtime.getController().state.motions['31']); await wait(220);
+      assert.equal(await js(`singleCurtain.querySelector('.curtain-${draw}').style.width`), draw === 'left' ? '52%' : '28%');
+      assert.equal(runtime.getController().state.config.appearances.demo['31'].draw, draw);
+    }
+    await js('singleCurtain.closest(".shade-window-visual").dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowRight",bubbles:true,cancelable:true}))');
+    await until(() => runtime.getController().state.motions['31']);
+    assert.equal(await js('document.getElementById("shade-31-pct-closed").value'), '24');
+    await until(() => !runtime.getController().state.motions['31']);
+    const output=path.resolve(__dirname,'../docs/screenshots');
+    await js('document.getElementById("shade-appearance-31").click()');
+    await wait(100); fs.writeFileSync(path.join(output,'single-draw-editor.png'),(await win.webContents.capturePage()).toPNG());
+    await js('document.getElementById("shadeAppearanceDialog").close()');
+    await until(async () => !await js('!!document.getElementById("shadeAppearanceDialog")'));
+  });
+  await check('resetting a demo curtain restores the original two-rail shade and clears the saved override', async () => {
+    await js('document.getElementById("shade-appearance-31").click(); document.querySelector("#shadeAppearanceDialog .appearance-reset").click()');
+    assert.equal(await js('document.querySelector("#shadeAppearanceDialog [value=shade]").checked'), true);
+    assert.equal(await js('document.querySelector(".curtain-draw-field").hidden'), true);
+    await js('document.querySelector("#shadeAppearanceDialog .appearance-save").click()');
+    await until(async () => !await js('!!document.getElementById("shadeAppearanceDialog")'));
+    assert.equal(await js('allShades.find(s=>s.id==="31").controls.kind'), 'dual-rail');
+    assert.equal(await js('document.getElementById("shade-name-31").closest("article").querySelectorAll(".shade-handle").length'), 2);
+    assert.equal(runtime.getController().state.config.appearances.demo['31'], undefined);
   });
   await check('pinning a shade places its controls on Home', async () => {
     await js('document.getElementById("shade-name-31").closest("article").querySelector(".scene-star").click()');

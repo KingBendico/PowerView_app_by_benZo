@@ -22,7 +22,7 @@ class Controller extends EventEmitter {
   async connect(input, { demo = false } = {}) {
     const address = demo ? 'demo' : normalizeAddress(input);
     const attempt = ++this.attempt;
-    const candidate = demo ? new DemoGateway() : this.clientFactory(address);
+    const candidate = demo ? new DemoGateway({ appearances: this.store.get().appearances?.demo }) : this.clientFactory(address);
     if (!this.client) { this.state.connection = { status: 'connecting', address, error: null }; this.publish(); }
     try {
       const identity = await candidate.identify();
@@ -226,11 +226,25 @@ class Controller extends EventEmitter {
     const shade = this.state.snapshot?.shades.find(item => item.id === id);
     if (!shade) throw new Error('This shade is no longer available.');
     const value = appearance === null ? null : cleanAppearance(appearance);
-    if (value?.kind === 'curtain' && shade.controls.kind === 'dual-rail') throw new Error('Two-rail shades need the shade view to keep both rails visible.');
+    const demo = this.state.connection.status === 'demo' && this.client instanceof DemoGateway;
+    if (value?.kind === 'curtain' && shade.controls.kind === 'dual-rail' && !demo) throw new Error('This device has two moving rails. Choose a fabric style or color; curtain controls require a single opening control.');
+    if (demo && this.client.appearanceChangesType(id, value) && Object.keys(this.state.pending).length) {
+      throw new Error('Wait for the demo command to finish sending, then save the covering.');
+    }
     const config = this.store.get(), address = this.state.connection.address;
     config.appearances ||= {}; config.appearances[address] ||= {};
     if (value) config.appearances[address][id] = value; else delete config.appearances[address][id];
-    this.state.config = this.store.save(config); this.publish(); return this.getState();
+    this.state.config = this.store.save(config);
+    const changed = demo ? this.client.setAppearance(id, value) : null;
+    if (changed) {
+      this.state.snapshot.shades[this.state.snapshot.shades.findIndex(item => item.id === id)] = changed;
+      clearTimeout(this.motionTimers.get(id)); this.motionTimers.delete(id);
+      delete this.state.motions[id]; delete this.state.targets[id];
+      delete this.state.feedback[`shade:${id}`]; delete this.state.feedback[`stop:${id}`];
+      this.positionGuards.delete(id); this.eventTimes.delete(id);
+      this.eventRevision = (this.eventRevision || 0) + 1; this.shadeRevisions.set(id, this.eventRevision);
+    }
+    this.publish(); return this.getState();
   }
   resetMotion() {
     for (const timer of this.motionTimers.values()) clearTimeout(timer);
