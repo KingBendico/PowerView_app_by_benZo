@@ -14,15 +14,17 @@ function positionsForPercent(shade, percent) {
 }
 
 class Shortcuts extends EventEmitter {
-  constructor(controller, globalShortcut, { now = Date.now, platform = process.platform, notify = () => {}, toggleWindow = () => {} } = {}) {
+  constructor(controller, globalShortcut, { now = Date.now, platform = process.platform, notify = () => {}, toggleWindow = () => {}, savedControls } = {}) {
     super(); this.controller = controller; this.api = globalShortcut; this.now = now; this.platform = platform;
     this.notify = notify; this.toggleWindow = toggleWindow;
+    this.savedControls = savedControls;
     this.registered = new Map(); this.errors = new Map(); this.lastPressed = new Map(); this.busy = new Set();
     this.editing = false; this.disposed = false; this.signature = ''; this.revision = 0; this.lastRun = null; this.rows = [];
     this.listener = () => this.sync(); controller.on('state', this.listener); this.sync();
   }
   settings() { return this.controller.state.config.shortcuts?.[this.controller.state.connection.address] || { enabled: true, bindings: [] }; }
   target(binding) {
+    if (['preset', 'group'].includes(binding.target)) return this.savedControls?.home()[`${binding.target}s`].find(item => item.id === binding.targetId);
     if (binding.target === 'app') return { name: 'PowerView' };
     if (binding.target === 'home') return { name: 'Whole home' };
     return this.controller.state.snapshot?.[`${binding.target}s`]?.find(item => item.id === binding.targetId);
@@ -46,14 +48,16 @@ class Shortcuts extends EventEmitter {
         roomName: state.snapshot.rooms.find(room => room.id === shade.roomId)?.name || '',
         supportsPosition: supportsPosition(shade), dualRail: shade.controls.kind === 'dual-rail' })),
       rooms: (state.snapshot?.rooms || []).map(({ id, name }) => ({ id, name })),
-      scenes: (state.snapshot?.scenes || []).map(({ id, name }) => ({ id, name })) };
+      scenes: (state.snapshot?.scenes || []).map(({ id, name }) => ({ id, name })),
+      presets: (this.savedControls?.home().presets || []).map(({ id, name }) => ({ id, name })),
+      groups: (this.savedControls?.home().groups || []).map(({ id, name }) => ({ id, name })) };
   }
   publish() { if (!this.disposed) this.emit('state', this.getState()); }
   release() { for (const accelerator of this.registered.keys()) this.api.unregister(accelerator); this.registered.clear(); }
   sync(force = false) {
     if (this.disposed) return;
     const state = this.controller.state, settings = this.settings(), address = state.connection.address;
-    const signature = JSON.stringify([address, this.controller.epoch, settings, state.connection.status, this.editing,
+    const signature = JSON.stringify([address, this.controller.epoch, settings, state.config.savedControls, state.connection.status, this.editing,
       state.snapshot?.shades.map(shade => [shade.id, shade.name, shade.available, shade.controls.code]), state.snapshot?.rooms, state.snapshot?.scenes]);
     if (!force && signature === this.signature) return;
     if (this.address !== address) { this.lastRun = null; this.lastPressed.clear(); this.errors.clear(); this.address = address; }
@@ -121,6 +125,10 @@ class Shortcuts extends EventEmitter {
         const accepted = result.filter(item => item.ok).length;
         message = `${accepted} of ${result.length} commands accepted`;
         if (accepted !== result.length || !result.length) throw new Error(message);
+      } else if (['preset', 'group'].includes(binding.target)) {
+        result = await this.savedControls.run({ address, kind: `${binding.target}s`, id: binding.targetId, action: binding.action });
+        const accepted = result.filter(item => item.ok).length; message = `${accepted} of ${result.length} commands accepted`;
+        if (accepted !== result.length) throw new Error(message);
       } else if (binding.target === 'scene') await this.controller.activateScene(binding.targetId);
       else if (binding.action === 'toggle') { this.toggleWindow(); message = 'done'; }
       else { await this.controller.refresh(); message = 'status refreshed'; }

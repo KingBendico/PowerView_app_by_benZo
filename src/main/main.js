@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, session, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, session, globalShortcut, powerMonitor } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
@@ -6,6 +6,7 @@ const { isIP } = require('node:net');
 const { ConfigStore } = require('./config-store');
 const { Controller } = require('./controller');
 const { Shortcuts } = require('./shortcuts');
+const { SavedControls } = require('./saved-controls');
 const { GatewayClient, normalizeAddress } = require('./gateway-client');
 const { Discovery } = require('./discovery');
 const { NetworkScan, interfaces } = require('./network-scan');
@@ -15,7 +16,7 @@ const mainUrl = pathToFileURL(path.join(basePath, 'views/index.html')).href;
 const dataArg = process.argv.find(value => value.startsWith('--data-dir='));
 if (dataArg) app.setPath('userData', path.resolve(dataArg.slice(11)));
 else if (process.argv.includes('--demo')) app.setPath('userData', path.join(app.getPath('userData'), 'demo-profile'));
-let mainWindow, tray, controller, store, shortcuts, refreshTimer, quitting = false;
+let mainWindow, tray, controller, store, shortcuts, savedControls, refreshTimer, quitting = false;
 const discovery = new Discovery();
 const scanner = new NetworkScan();
 function send(channel, payload) {
@@ -197,6 +198,13 @@ function installHandlers() {
   handle('get-prefs', getPrefs);
   handle('set-prefs', setPrefs);
   handle('get-shortcuts', () => shortcuts.getState());
+  handle('get-saved-controls', () => savedControls.getState());
+  handle('save-control', data => savedControls.save(data));
+  handle('remove-control', data => savedControls.remove(data));
+  handle('run-control', data => savedControls.run(data));
+  handle('privacy-start', data => savedControls.startPrivacy(data));
+  handle('privacy-cancel', id => savedControls.cancel(id));
+  handle('privacy-restore', id => savedControls.restore(id));
   handle('save-shortcuts', data => {
     const result = shortcuts.save(data); mainWindow.webContents.setIgnoreMenuShortcuts(false); return result;
   });
@@ -230,7 +238,11 @@ function installHandlers() {
 }
 app.whenReady().then(async () => {
   store = new ConfigStore(app.getPath('userData')); controller = new Controller(store);
-  shortcuts = new Shortcuts(controller, globalShortcut, { notify: message => send('command-notice', message),
+  savedControls = new SavedControls(controller, { notify: message => send('command-notice', message) });
+  savedControls.on('state', state => send('saved-controls-state', state));
+  powerMonitor.on('suspend', () => savedControls.cancelAll('Computer sleeping · timer cancelled.'));
+  powerMonitor.on('resume', () => savedControls.cancelAll('Computer resumed · no late restore will run.'));
+  shortcuts = new Shortcuts(controller, globalShortcut, { savedControls, notify: message => send('command-notice', message),
     toggleWindow: () => { if (mainWindow?.isVisible() && mainWindow.isFocused()) mainWindow.hide(); else showWindow(); } });
   shortcuts.on('state', state => send('shortcuts-state', state));
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
@@ -253,6 +265,6 @@ app.whenReady().then(async () => {
   refreshTimer = setInterval(() => { if (controller.client) controller.refresh().catch(() => {}); }, 60000);
   app.on('activate', () => showWindow());
 });
-app.on('before-quit', () => { quitting = true; clearInterval(refreshTimer); discovery.stop(); scanner.stop(); shortcuts?.dispose(); controller?.dispose(); });
+app.on('before-quit', () => { quitting = true; clearInterval(refreshTimer); discovery.stop(); scanner.stop(); shortcuts?.dispose(); savedControls?.dispose(); controller?.dispose(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin' && !controller?.state.config.closeToTray) app.quit(); });
-module.exports = { getWindow: () => mainWindow, getController: () => controller, getShortcuts: () => shortcuts };
+module.exports = { getWindow: () => mainWindow, getController: () => controller, getShortcuts: () => shortcuts, getSavedControls: () => savedControls };

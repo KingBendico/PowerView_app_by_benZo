@@ -1,0 +1,36 @@
+.saved-quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.saved-quick-actions button,.saved-card-actions button { border: 1px solid var(--border); border-radius: 8px; background: var(--soft-accent); color: var(--accent); padding: 9px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+.saved-controls-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,230px),1fr)); gap: 12px; }
+.saved-card,.privacy-card { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 17px; text-align: left; }
+.saved-card strong,.privacy-card strong { font-size: 14px; overflow-wrap: anywhere; }
+.saved-card p,.privacy-card p,.saved-empty { color: var(--text-muted); font-size: 12px; line-height: 1.6; text-align: left; margin: 7px 0 12px; overflow-wrap: anywhere; }
+.saved-card details { font-size: 11px; color: var(--text-muted); margin: 10px 0; }
+.saved-card summary { cursor: pointer; }
+.saved-card ul { padding-left: 17px; line-height: 1.6; }
+.saved-card-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
+.saved-card-actions button:disabled { opacity: .5; cursor: default; }
+.saved-card-actions .saved-secondary { background: var(--bg); color: var(--text); }
+.saved-card-actions .saved-remove { background: none; border-color: transparent; color: var(--text-muted); margin-left: auto; }
+.privacy-list { display: grid; gap: 10px; margin-top: 12px; }
+.privacy-card.is-active { border-left: 3px solid var(--accent); }
+.saved-tabs { display: flex; gap: 8px; flex-shrink: 0; margin: 20px 0 5px; }
+.saved-tabs button { flex: 1; border: 1px solid transparent; background: var(--bg); color: var(--text-muted); border-radius: 8px; padding: 11px 6px; font-size: 12px; }
+.saved-tabs button[aria-pressed=true] { background: var(--soft-accent); color: var(--accent); border-color: var(--accent); }
+.saved-intro,.saved-policy { font-size: 12px; color: var(--text-muted); line-height: 1.6; text-align: left; }
+.saved-policy { background: var(--soft-accent); border-radius: 9px; padding: 12px; }
+.saved-name-field,.privacy-duration { display: flex; align-items: center; gap: 12px; margin: 18px 0; font-size: 12px; }
+.saved-name-field input { flex: 1; width: 0; min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); background: var(--surface); }
+.privacy-duration select { max-width: 200px; }
+.saved-selection-heading { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin: 20px 0 12px; }
+.saved-selection-heading label { max-width: 65%; }
+.saved-shade-picker { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.saved-shade-choice { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 9px; padding: 11px; cursor: pointer; min-width: 0; }
+.saved-shade-choice:has(input:checked) { border-color: var(--accent); background: var(--soft-accent); }
+.saved-shade-choice span { min-width: 0; }
+.saved-shade-choice strong,.saved-shade-choice small { display: block; overflow-wrap: anywhere; }
+.saved-shade-choice strong { font-size: 12px; font-weight: 600; }
+.saved-shade-choice small { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+.saved-selection-count { font-size: 11px; color: var(--text-muted); text-align: left; }
+.saved-existing { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 20px; }
+.saved-existing-list { display: grid; gap: 10px; margin-top: 12px; }
+@media(max-width:500px) { .saved-shade-picker { grid-template-columns: 1fr; } .saved-tabs { gap: 4px; } .saved-tabs button { font-size: 11px; } }

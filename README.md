@@ -27,6 +27,8 @@ Command/Ctrl+K opens search; arrow keys and Enter select a result. Ctrl+B and Ct
 
 **Settings → Keyboard shortcuts** adds custom, system-wide keys for individual shades, rooms, the whole home, gateway scenes, showing/hiding PowerView and refreshing status. They work while PowerView is running, including in the background. The starter assigns Ctrl+Shift+C/O/H to Close/Open/50% closed for your chosen shade; every combination and percentage is editable. Room and whole-home shortcuts run immediately. Conflicts are checked before saving; recording pauses shortcuts, and each home/demo has separate bindings. See [shortcut setup and behavior](docs/SHORTCUTS.md).
 
+**Home → Saved controls** lets you save named positions, build custom groups across rooms, and temporarily close selected shades before restoring their previous positions. Presets and groups can also have global shortcuts. Privacy timers start after closure is confirmed and require the app to stay running and the computer awake; a newer command, connection loss, sleep or quit cancels the restore. See [saved controls](docs/SAVED_CONTROLS.md) and the [review of your gateway API's capabilities](docs/API_CAPABILITIES.md).
+
 ## Verify and build
 
 ```sh

@@ -19,6 +19,7 @@ function createLiveShadeControl(shade, statusEl) {
     const primaryMarker = inner.querySelector('.target-primary'), secondaryMarker = inner.querySelector('.target-secondary');
     const inputsRow = document.createElement('div'); inputsRow.className = dual ? 'shade-dual-inputs' : 'shade-tile-pct-row';
     const inputs = {}, handles = {};
+    const grips = {};
     const axes = dual ? ['secondary', 'primary'] : ['primary'];
     for (const axis of axes) {
         const label = document.createElement('label'); label.className = dual ? 'shade-dual-input-label' : 'shade-tile-pct-label';
@@ -31,11 +32,25 @@ function createLiveShadeControl(shade, statusEl) {
         if (!dual) { const suffix = document.createElement('span'); suffix.className = 'shade-tile-pct-suffix'; suffix.textContent = '% closed'; label.appendChild(suffix); }
         inputsRow.appendChild(label); inputs[axis] = input;
         const handle = dual ? document.createElement('div') : visual;
-        if (dual) { handle.className = `shade-handle shade-handle-${axis === 'primary' ? 'primary' : 'rail'}`; inner.appendChild(handle); }
+        if (dual) {
+            handle.className = `shade-handle shade-handle-${axis === 'primary' ? 'primary' : 'rail'} motion-grip`;
+            handle.dataset.axis = axis;
+            handle.title = `Drag the ${axis === 'primary' ? 'bottom' : 'top'} rail to choose a target`;
+            inner.appendChild(handle);
+        }
         handle.tabIndex = 0; handle.setAttribute('role', 'slider');
         handle.setAttribute('aria-label', `${shade.ptName}, ${dual ? axis === 'primary' ? 'bottom rail' : 'top rail' : curtains ? 'curtain position' : 'shade position'}`);
         handle.setAttribute('aria-orientation', curtains ? 'horizontal' : 'vertical');
         handle.setAttribute('aria-valuemin', '0'); handle.setAttribute('aria-valuemax', '100'); handles[axis] = handle;
+    }
+    if (!dual) {
+        for (const side of curtains ? ['left', 'right'] : ['primary']) {
+            const grip = document.createElement('span');
+            grip.className = `motion-grip${curtains ? ' motion-grip-curtain' : ''}`;
+            grip.dataset.axis = 'primary'; grip.dataset.side = side;
+            grip.setAttribute('aria-hidden', 'true');
+            inner.appendChild(grip); grips[side] = grip;
+        }
     }
     root.appendChild(inputsRow);
     const note = document.createElement('div'); note.className = 'shade-motion-note'; root.appendChild(note);
@@ -80,9 +95,15 @@ function createLiveShadeControl(shade, statusEl) {
             leftCurtain.hidden = panels.left === 0; rightCurtain.hidden = panels.right === 0;
             inner.dataset.physicalPrimary = p.toFixed(2);
             if (dual) {
-                handles.secondary.style.top = `${s}%`; handles.primary.style.top = `${p}%`;
+                handles.secondary.style.top = `clamp(11px, ${s}%, calc(100% - 11px))`;
+                handles.primary.style.top = `clamp(11px, ${p}%, calc(100% - 11px))`;
                 inner.dataset.physicalSecondary = s.toFixed(2);
-            }
+            } else if (curtains) {
+                for (const side of ['left', 'right']) {
+                    grips[side].hidden = panels[side] === 0;
+                    grips[side].style[side] = `clamp(11px, calc(${panels[side]}% - 7px), calc(100% - 11px))`;
+                }
+            } else grips.primary.style.top = `clamp(11px, ${p}%, calc(100% - 11px))`;
         }
         const target = localTarget || appState?.targets?.[shade.id]?.positions || motion()?.target;
         const showTarget = !!draft || !!target && Object.keys(target).length > 0;
@@ -100,6 +121,7 @@ function createLiveShadeControl(shade, statusEl) {
             }
         }
         for (const axis of axes) {
+            handles[axis].setAttribute('aria-disabled', String(!canEdit()));
             const display = showTarget ? chosen[axis] : values[axis];
             if (document.activeElement !== inputs[axis] && Number.isFinite(display)) inputs[axis].value = String(Math.round(display));
             if (Number.isFinite(display)) {
@@ -157,8 +179,8 @@ function createLiveShadeControl(shade, statusEl) {
         try { inner.releasePointerCapture(active.id); } catch { /* Pointer may already be released. */ }
     }
     function chooseAt(event) {
-        const { rect, axis, side } = drag;
-        const fraction = curtains ? (event.clientX - rect.left) / rect.width : (event.clientY - rect.top) / rect.height;
+        const { rect, axis, side, offset } = drag;
+        const fraction = (curtains ? (event.clientX - rect.left) / rect.width : (event.clientY - rect.top) / rect.height) - offset;
         const value = curtains ? curtainGeometry.positionAt(fraction, curtainDraw, side) : fraction * 100;
         draft[axis] = bounded(value, axis, draft); sync();
     }
@@ -177,9 +199,23 @@ function createLiveShadeControl(shade, statusEl) {
         if (root.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') document.activeElement.blur();
         const rect = inner.getBoundingClientRect(); draft = { ...selection() };
         const y = (event.clientY - rect.top) / rect.height * 100;
-        const axis = dual && Math.abs(y - draft.secondary) < Math.abs(y - draft.primary) ? 'secondary' : 'primary';
+        const grip = event.target.closest('.motion-grip');
+        const axis = grip?.dataset.axis || (dual && Math.abs(y - draft.secondary) < Math.abs(y - draft.primary) ? 'secondary' : 'primary');
+        const side = grip?.dataset.side || (event.clientX < rect.left + rect.width / 2 ? 'left' : 'right');
+        let offset = 0;
+        if (grip) {
+            // A grip is inset at the endpoints. Preserve where it was grabbed so
+            // touching a fully open shade does not suddenly choose a new position.
+            const physical = toVisual(rendered || devicePosition());
+            if (Number.isFinite(physical[axis])) {
+                draft[axis] = physical[axis];
+                const panels = curtainGeometry.panels(physical.primary, curtainDraw);
+                const edge = curtains ? (side === 'right' ? 100 - panels.right : panels.left) / 100 : physical[axis] / 100;
+                offset = (curtains ? (event.clientX - rect.left) / rect.width : y / 100) - edge;
+            }
+        }
         handles[axis].focus({ preventScroll: true });
-        drag = { id: event.pointerId, rect, axis, side: event.clientX < rect.left + rect.width / 2 ? 'left' : 'right' };
+        drag = { id: event.pointerId, rect, axis, side, offset };
         inner.classList.add('shade-window-dragging');
         try { inner.setPointerCapture(event.pointerId); } catch { /* Synthetic test pointers have no capture. */ }
         document.addEventListener('pointermove', onMove, true); document.addEventListener('pointerup', onEnd, true);

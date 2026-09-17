@@ -205,6 +205,7 @@ function showHome() {
     for (const scene of allScenes.filter(item => isFavoriteSceneId(item.id))) sceneGrid.appendChild(buildSceneTile(scene));
     if (!sceneGrid.children.length) { const note = document.createElement('p'); note.textContent = 'Star a scene in Scenes to keep it here and in the tray menu.'; sceneGrid.appendChild(note); }
     scenes.appendChild(sceneGrid); summary.appendChild(scenes);
+    window.savedControls?.mountHome(content);
     const pinsHeader = document.createElement('div'); pinsHeader.className = 'home-section-heading';
     const pinsTitle = document.createElement('h3'); pinsTitle.textContent = 'Pinned shades'; pinsHeader.appendChild(pinsTitle);
     const manage = document.createElement('button'); manage.type = 'button'; manage.className = 'text-action'; manage.textContent = 'Browse rooms →'; manage.addEventListener('click',fetchAndShowRooms); pinsHeader.appendChild(manage); content.appendChild(pinsHeader);

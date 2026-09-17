@@ -80,7 +80,13 @@ class GatewayClient {
         if (method !== 'GET') return null;
         throw new GatewayError('The gateway returned an empty response. Try refreshing.', 'INVALID_RESPONSE');
       }
-      try { return JSON.parse(text); } catch { throw new GatewayError('The gateway returned an unreadable response.', 'INVALID_RESPONSE'); }
+      let value;
+      try { value = JSON.parse(text); } catch { throw new GatewayError('The gateway returned an unreadable response.', 'INVALID_RESPONSE'); }
+      if (method !== 'GET' && value && typeof value === 'object') {
+        const failures = Array.isArray(value.responses) ? value.responses.filter(item => typeof item?.err === 'number' && item.err !== 0) : [];
+        if (typeof value.err === 'number' && value.err !== 0 || failures.length) throw new GatewayError(`The gateway rejected ${failures.length || 'one or more'} shade command(s). Check the device connection.`, 'COMMAND_REJECTED');
+      }
+      return value;
     } catch (error) {
       if (this.disposed) throw new GatewayError('Connection changed. Try again.', 'CANCELLED');
       if (!(error instanceof GatewayError) && method === 'GET' && attempt < this.readRetries) return this.request(route, { method, attempt: attempt + 1 });

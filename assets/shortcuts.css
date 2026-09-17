@@ -32,7 +32,7 @@
 .shortcuts-starter-shade { display: flex; align-items: stretch; gap: 10px; }
 .shortcuts-dialog select { min-width: 0; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface); padding: 9px; font-size: 12px; width: 100%; }
 .shortcuts-starter-shade select { flex: 1; }
-.shortcuts-starter-shade button,.shortcuts-save { border: 0; border-radius: 8px; padding: 10px 15px; color: #fff; background: var(--accent); font-size: 12px !important; font-weight: 600 !important; }
+.shortcuts-starter-shade button,.shortcuts-save { border: 0; border-radius: 8px; padding: 10px 15px; color: var(--surface); background: var(--accent); font-size: 12px !important; font-weight: 600 !important; }
 .shortcuts-starter-shade button span { margin-left: 10px; }
 .shortcuts-quick-add { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 14px; }
 .shortcuts-quick-add button { border: 0; padding: 3px 0; color: var(--accent); background: transparent; font-size: 11px; }

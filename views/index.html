@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="../assets/desktop.css">
     <link rel="stylesheet" href="../assets/shade-controls.css">
     <link rel="stylesheet" href="../assets/shortcuts.css">
+    <link rel="stylesheet" href="../assets/saved-controls.css">
     <title>PowerView</title>
 </head>
 <body class="app-initial-load">
@@ -124,6 +125,9 @@
             <h2 class="info-help-h2">Appearance</h2>
             <p>Use the <b>palette icon</b> on a shade to choose blinds or curtains, fabric style and color. For curtains, choose a <b>center-opening pair</b> or a <b>single curtain opening to the left or right</b>. Curtains drag horizontally; blinds drag vertically. Choices are saved per device and home. Real two-rail devices keep both rails visible. Demo devices can switch to curtains and back; Reset restores their original controls and appearance.</p>
 
+            <h2 class="info-help-h2">Saved controls &amp; temporary privacy</h2>
+            <p>On <b>Home → Saved controls</b>, save current reported positions as a named preset or create a group of selected shades across rooms. These can also be assigned global shortcuts. <b>Temporary privacy</b> closes a selection, starts a countdown once closure is confirmed, and restores the previous positions. Keep PowerView running and your computer awake. New commands, reported changes, connection loss, sleep or quitting cancel the return. <b>Restore now</b> returns early; <b>Cancel timer</b> keeps the current positions. Existing Stop controls halt physical movement.</p>
+
             <h2 class="info-help-h2">Scenes</h2>
             <p>Use <b>Scenes</b> in the navigation to run gateway scenes. Star favorites and use recent chips for quick access.</p>
             <h2 class="info-help-h2">Global keyboard shortcuts</h2>
@@ -157,6 +161,7 @@
 <script src="../src/renderer/app-state.js"></script>
 <script src="../src/renderer/settings.js"></script>
 <script src="../src/renderer/shortcuts.js"></script>
+<script src="../src/renderer/saved-controls.js"></script>
 <script src="../src/renderer/search.js"></script>
 </body>
 </html>

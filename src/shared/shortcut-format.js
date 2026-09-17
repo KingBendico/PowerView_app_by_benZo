@@ -6,7 +6,7 @@
     const order = ['Control', 'Alt', 'Shift', 'Super'];
     const keys = ['Space', 'Return', 'Tab', 'Backspace', 'Delete', 'Insert', 'Up', 'Down', 'Left', 'Right', 'Home', 'End', 'PageUp', 'PageDown'];
     const actions = { shade: ['open', 'close', 'position', 'stop'], room: ['open', 'close', 'stop'],
-        home: ['open', 'close', 'stop'], scene: ['activate'], app: ['toggle', 'refresh'] };
+        home: ['open', 'close', 'stop'], scene: ['activate'], preset: ['activate'], group: ['open', 'close', 'stop'], app: ['toggle', 'refresh'] };
     function normalizeAccelerator(value) {
         if (typeof value !== 'string' || value.length > 90) throw new Error('Record a valid key combination.');
         const parts = value.split('+').map(part => part.trim());
@@ -34,8 +34,9 @@
         if (!value || typeof value.id !== 'string' || !/^[a-zA-Z0-9-]{1,64}$/.test(value.id)
             || typeof value.target !== 'string' || !Object.hasOwn(actions, value.target) || !actions[value.target].includes(value.action) || typeof value.enabled !== 'boolean') throw new Error('Choose a target and an action for every shortcut.');
         if (['shade', 'room', 'scene'].includes(value.target) && (typeof value.targetId !== 'string' || !/^\d+$/.test(value.targetId))) throw new Error('Choose a shade, room or scene.');
+        if (['preset', 'group'].includes(value.target) && (typeof value.targetId !== 'string' || !/^[a-zA-Z0-9-]{1,64}$/.test(value.targetId))) throw new Error('Choose a saved preset or group.');
         if (value.action === 'position' && (!Number.isInteger(value.percent) || value.percent < 0 || value.percent > 100)) throw new Error('Enter a whole percentage between 0 and 100.');
-        return { id: value.id, target: value.target, ...(['shade', 'room', 'scene'].includes(value.target) ? { targetId: value.targetId } : {}), action: value.action, enabled: value.enabled,
+        return { id: value.id, target: value.target, ...(['shade', 'room', 'scene', 'preset', 'group'].includes(value.target) ? { targetId: value.targetId } : {}), action: value.action, enabled: value.enabled,
             accelerator: normalizeAccelerator(value.accelerator), ...(value.action === 'position' ? { percent: value.percent } : {}) };
     }
     function cleanSettings(value) {
@@ -48,6 +49,6 @@
         }
         return { enabled: value.enabled, bindings };
     }
-    const actionLabel = binding => ({ open: 'Open fully', close: 'Close fully', stop: 'Stop', position: `${binding.percent}% closed`, activate: 'Run scene', toggle: 'Show / hide app', refresh: 'Refresh status' }[binding.action]);
+    const actionLabel = binding => ({ open: 'Open fully', close: 'Close fully', stop: 'Stop', position: `${binding.percent}% closed`, activate: binding.target === 'preset' ? 'Apply preset' : 'Run scene', toggle: 'Show / hide app', refresh: 'Refresh status' }[binding.action]);
     return { normalizeAccelerator, fromEvent, display, cleanBinding, cleanSettings, actionLabel, actions };
 });

@@ -10,6 +10,8 @@ Shortcuts work system-wide while PowerView is running, even with another app foc
 | Room | Open, close or stop every shade in that room |
 | Whole home | Open, close or stop all shades |
 | Existing gateway scene | Run the scene |
+| Named preset | Apply its saved positions |
+| Custom group | Open, close or stop its selected shades |
 | PowerView | Show/hide the app, or refresh status |
 
 The three-action starter uses **Ctrl+Shift+C** for Close, **Ctrl+Shift+O** for Open and **Ctrl+Shift+H** for 50% closed on the selected shade. Other optional starters use **Ctrl+Alt/Option+Shift+S** for whole-home Stop and **Ctrl+Alt/Option+P** for the app window. None is installed until you save. Use a different combination for each enabled action; the editor supports up to 40 bindings per home.

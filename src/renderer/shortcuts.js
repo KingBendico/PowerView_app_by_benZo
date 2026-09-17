@@ -60,7 +60,7 @@
                 button.textContent = binding.accelerator ? format.display(binding.accelerator, initial.platform) : 'Record keys';
             }
             function makeBinding(target, targetId, action, accelerator = '', percent) {
-                return { id: crypto.randomUUID(), target, ...(['shade', 'room', 'scene'].includes(target) ? { targetId } : {}), action, enabled: true, accelerator, ...(action === 'position' ? { percent } : {}) };
+                return { id: crypto.randomUUID(), target, ...(['shade', 'room', 'scene', 'preset', 'group'].includes(target) ? { targetId } : {}), action, enabled: true, accelerator, ...(action === 'position' ? { percent } : {}) };
             }
             function add(bindings) {
                 if (draft.bindings.length + bindings.length > 40) { message('You can save up to 40 shortcuts for this home.'); return; }
@@ -69,7 +69,7 @@
                 list.lastElementChild?.querySelector('.shortcut-target').focus({ preventScroll: true });
             }
             function populateTarget(select, binding) {
-                for (const [target, title, items] of [['shade', 'Shades & curtains', initial.shades], ['room', 'Rooms', initial.rooms], ['scene', 'Scenes', initial.scenes]]) {
+                for (const [target, title, items] of [['shade', 'Shades & curtains', initial.shades], ['room', 'Rooms', initial.rooms], ['scene', 'Scenes', initial.scenes], ['preset', 'Saved positions', initial.presets], ['group', 'Custom groups', initial.groups]]) {
                     if (!items.length) continue;
                     const group = document.createElement('optgroup'); group.label = title;
                     for (const item of items) option(group, `${target}:${item.id}`, target === 'shade' ? `${item.roomName} · ${item.name}` : item.name);
@@ -93,7 +93,7 @@
                     populateTarget(target, binding);
                     const shade = initial.shades.find(item => item.id === binding.targetId);
                     for (const value of format.actions[binding.target]) {
-                        const item = option(action, value, value === 'position' ? 'Set percentage…' : format.actionLabel({ action: value }));
+                        const item = option(action, value, value === 'position' ? 'Set percentage…' : format.actionLabel({ target: binding.target, action: value }));
                         if (binding.target === 'shade' && (value === 'position' && !shade?.supportsPosition || value !== 'stop' && !shade?.known)) item.disabled = true;
                     }
                     action.value = binding.action; percent.value = binding.percent ?? 50;
@@ -109,7 +109,7 @@
                     target.addEventListener('change', () => {
                         const [kind, id] = target.value.split(':'); binding.target = kind; delete binding.targetId;
                         if (id) binding.targetId = id;
-                        binding.action = kind === 'app' ? 'toggle' : kind === 'scene' ? 'activate' : 'stop'; delete binding.percent; render();
+                        binding.action = kind === 'app' ? 'toggle' : ['scene', 'preset'].includes(kind) ? 'activate' : 'stop'; delete binding.percent; render();
                     });
                     action.addEventListener('change', () => { binding.action = action.value; if (action.value === 'position') binding.percent = 50; else delete binding.percent; render(); });
                     percent.addEventListener('input', () => { binding.percent = percent.value === '' ? null : Number(percent.value); updateStatus(); });

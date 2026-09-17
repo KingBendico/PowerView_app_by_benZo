@@ -161,7 +161,7 @@ body.has-status-banner { padding-top: 0; }
 #content .room-grid { grid-template-columns: repeat(auto-fit,minmax(155px,1fr)) !important; gap: 14px !important; margin-top: 20px !important; }
 #content .room-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-height: 155px !important; background: var(--surface); color: var(--text); padding: 20px; gap: 5px !important; border: 1px solid var(--border); box-shadow: none; border-radius: 13px; }
 #content .room-tile:hover { border-color: var(--accent); transform: translateY(-2px); }
-#content .room-tile .card-title { text-align: left; font-size: 14px !important; font-weight: 600; margin: 0; }
+#content .room-tile .card-title { text-align: left; font-size: 14px !important; font-weight: 600; margin: 0; color: var(--text); text-shadow: none; }
 #content .room-tile .room-tile-icon { display: grid; place-items: center; height: 36px !important; width: 36px !important; border-radius: 9px; background: var(--soft-accent); color: var(--accent); font-size: 16px !important; margin-bottom: 12px; }
 .room-card-count { font-size: 11px; color: var(--text-muted); }
 .room-tile-shortcut { right: 12px; top: 12px; border: 1px solid var(--border); background: transparent; font-size: 9px; color: var(--text-muted); }

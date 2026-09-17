@@ -57,6 +57,28 @@ async function run() {
     await until(async () => await js('allShades.find(s=>s.id==="11").positions.primary') === .63);
     assert.match(await js('document.getElementById("shade-reported-11").textContent'), /37% closed/);
   });
+  await check('single-shade grips remain reachable at both endpoints and grabbing them does not jump', async () => {
+    for (const closed of [0,100]) {
+      await js(`api.moveShade({id:'11',positions:{primary:${100 - closed}}})`);
+      await until(() => !runtime.getController().state.motions['11']); await wait(220);
+      const bounds = await js(`(() => {
+        window.gripWindow = document.querySelector('[data-shade-id="11"] .motion-window');
+        window.grip = gripWindow.querySelector('.motion-grip');
+        window.gripRect = grip.getBoundingClientRect(); window.gripWindowRect = gripWindow.getBoundingClientRect();
+        return {top:gripRect.top-gripWindowRect.top,bottom:gripWindowRect.bottom-gripRect.bottom,visible:getComputedStyle(grip).visibility};
+      })()`);
+      assert.ok(bounds.top >= -.1 && bounds.bottom >= -.1, JSON.stringify(bounds));
+      assert.equal(bounds.visible,'visible');
+      await js(`grip.dispatchEvent(new PointerEvent('pointerdown',{pointerId:76,button:0,clientX:gripRect.left+gripRect.width/2,clientY:gripRect.top+gripRect.height/2,bubbles:true}))`);
+      assert.equal(await js('document.getElementById("shade-11-pct-closed").value'),String(closed));
+      await js(`document.dispatchEvent(new PointerEvent('pointermove',{pointerId:76,clientX:gripRect.left+gripRect.width/2,clientY:gripRect.top+gripRect.height/2+gripWindowRect.height*${closed ? '-.1' : '.1'},bubbles:true}))`);
+      assert.equal(await js('document.getElementById("shade-11-pct-closed").value'),String(closed ? 90 : 10));
+      await js('document.dispatchEvent(new PointerEvent("pointercancel",{pointerId:76,bubbles:true}))');
+      assert.equal(runtime.getController().state.targets['11'],undefined);
+    }
+    await js("api.moveShade({id:'11',positions:{primary:63}})");
+    await until(() => !runtime.getController().state.motions['11']); await wait(220);
+  });
   await check('dragging keeps a stable target during refresh and cancellation sends no movement', async () => {
     await until(() => !runtime.getController().state.motions['11']);
     await js(`window.dragWindow = document.querySelector('[data-shade-id="11"] .motion-window');
@@ -116,6 +138,13 @@ async function run() {
     await until(() => !runtime.getController().state.motions['11']); await wait(220);
     assert.equal(await js('curtainWindow.querySelector(".curtain-left").style.width'), '27%');
     assert.equal(await js('curtainWindow.querySelector(".curtain-right").style.width'), '27%');
+    assert.equal(await js('curtainWindow.querySelectorAll(".motion-grip:not([hidden])").length'),2);
+    await js(`window.curtainGrip = curtainWindow.querySelector('.motion-grip[data-side="right"]'); window.curtainGripRect = curtainGrip.getBoundingClientRect();
+      curtainGrip.dispatchEvent(new PointerEvent('pointerdown',{pointerId:80,button:0,clientX:curtainGripRect.left+curtainGripRect.width/2,clientY:curtainGripRect.top+curtainGripRect.height/2,bubbles:true}));`);
+    assert.equal(await js('document.getElementById("shade-11-pct-closed").value'),'50');
+    await js(`document.dispatchEvent(new PointerEvent('pointermove',{pointerId:80,clientX:curtainGripRect.left+curtainGripRect.width/2-curtainRect.width*.115,clientY:curtainGripRect.top+curtainGripRect.height/2,bubbles:true}))`);
+    assert.equal(await js('document.getElementById("shade-11-pct-closed").value'),'75');
+    await js('document.dispatchEvent(new PointerEvent("pointercancel",{pointerId:80,bubbles:true}))');
   });
   await check('type 9 preserves dual controls and rail keyboard operation', async () => {
     await js('navigateToRoomShades(allRooms.find(r=>r.id==="3"))');
@@ -141,6 +170,8 @@ async function run() {
       assert.equal(await js(`document.querySelector('#shadeAppearanceDialog .curtain-${draw}').style.width`), '61.6%');
       await js('document.querySelector("#shadeAppearanceDialog .appearance-save").click()');
       await until(async () => !await js('!!document.getElementById("shadeAppearanceDialog")'));
+      assert.equal(await js(`document.querySelectorAll('[data-shade-id="31"] .motion-grip:not([hidden])').length`),1);
+      assert.equal(await js(`document.querySelector('[data-shade-id="31"] .motion-grip:not([hidden])').dataset.side`),draw);
       const closed = draw === 'left' ? 50 : 25, fraction = draw === 'left' ? .52 : .72;
       await js(`window.singleCurtain = document.querySelector('[data-shade-id="31"] .motion-window'); window.singleRect = singleCurtain.getBoundingClientRect();
         singleCurtain.dispatchEvent(new PointerEvent('pointerdown',{pointerId:81,button:0,clientX:singleRect.left+singleRect.width*${fraction},clientY:singleRect.top+50,bubbles:true}));
@@ -212,6 +243,56 @@ async function run() {
     await js('document.getElementById("homeSearch").focus(); document.getElementById("homeSearch").value="Garden"; document.getElementById("homeSearch").dispatchEvent(new Event("input")); document.getElementById("homeSearch").dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))');
     assert.equal(await js('displayedRoomId'), '3');
     assert.equal(await js('document.getElementById("searchResults").hidden'), true);
+  });
+  await check('Saved controls captures named positions without movement and saves a custom group', async () => {
+    await until(() => !runtime.getController().state.motions['21'] && !runtime.getController().state.motions['22']);
+    await js('document.getElementById("btn-home").click(); window.savedControls.open("presets")');
+    await until(() => js('!!document.querySelector("#savedControlsDialog[open]")'));
+    const before = runtime.getController().state.snapshot.shades.filter(shade => ['21','22'].includes(shade.id)).map(shade=>({...shade.positions}));
+    await js('document.getElementById("savedControlName").value="Breakfast light"; document.getElementById("savedSelectGroup").value="room:2"; document.getElementById("savedSelectGroup").dispatchEvent(new Event("change")); document.querySelector("#savedControlsDialog .shortcuts-save").click()');
+    await until(() => runtime.getSavedControls().home().presets.length === 1);
+    assert.deepEqual(runtime.getSavedControls().home().presets[0].positions.map(item=>item.positions),before);
+    assert.deepEqual(runtime.getController().state.snapshot.shades.filter(shade=>['21','22'].includes(shade.id)).map(shade=>shade.positions),before);
+    await until(() => js('!document.querySelector("#savedControlsDialog .shortcuts-save").disabled'));
+    await js('document.querySelector("[data-tab=groups]").click(); document.getElementById("savedControlName").value="Kitchen pair"; document.querySelector("#savedControlsDialog .shortcuts-save").click()');
+    await until(() => runtime.getSavedControls().home().groups.length === 1);
+    assert.deepEqual(runtime.getSavedControls().home().groups[0].shadeIds,['21','22']);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(profile,'config.json'),'utf8')).savedControls.demo.groups[0].shadeIds,['21','22']);
+    await js('document.querySelector("#savedControlsDialog .shortcuts-cancel").click()'); await until(() => js('!document.getElementById("savedControlsDialog")'));
+    assert.equal(await js('document.querySelectorAll("#savedControlsHome .saved-card").length'),2);
+  });
+  await check('saved groups and presets run through Home and appear as shortcut targets', async () => {
+    await js('document.querySelector("#savedControlsHome [data-saved-action=close]").click()');
+    await until(() => runtime.getSavedControls().lastResult?.includes('Kitchen pair: 2 of 2'));
+    await until(() => !runtime.getController().state.motions['21'] && !runtime.getController().state.motions['22']);
+    assert.equal(runtime.getController().state.snapshot.shades.find(shade=>shade.id==='21').positions.primary,0);
+    await js('document.querySelector("#savedControlsHome [data-saved-action=activate]").click()');
+    await until(() => runtime.getSavedControls().lastResult?.includes('Breakfast light: 2 of 2'));
+    await until(() => !runtime.getController().state.motions['21'] && !runtime.getController().state.motions['22']);
+    assert.equal((await js('api.getShortcuts()')).presets[0].name,'Breakfast light');
+  });
+  await check('privacy timer closes, counts down, restores early and cancels on a newer command', async () => {
+    const original=runtime.getController().state.snapshot.shades.find(shade=>shade.id==='21').positions.primary;
+    await js('window.savedControls.open("privacy")'); await until(() => js('!!document.querySelector("#savedControlsDialog[open]")'));
+    await js('document.querySelector(".saved-shade-picker input[value=\\"21\\"]").click(); document.getElementById("privacyMinutes").value="1"; document.querySelector("#savedControlsDialog .shortcuts-save").click()');
+    await until(() => runtime.getSavedControls().getState().timers.some(timer=>timer.status==='waiting'),15000);
+    const first=runtime.getSavedControls().getState().timers.at(-1);
+    await until(() => js('document.querySelector(".privacy-card p").textContent.includes("Restores in")'));
+    await js('document.querySelector(".saved-dialog .privacy-card .saved-card-actions button").click()');
+    await until(() => runtime.getSavedControls().jobs.get(first.id).status==='completed');
+    await until(() => !runtime.getController().state.motions['21']);
+    assert.equal(runtime.getController().state.snapshot.shades.find(shade=>shade.id==='21').positions.primary,original);
+    await js('document.querySelector("#savedControlsDialog .shortcuts-save").click()');
+    await until(() => runtime.getSavedControls().getState().timers.some(timer=>timer.status==='waiting'),15000);
+    await js('api.shadeAction({id:"21",action:"stop"})');
+    assert.equal(runtime.getSavedControls().getState().timers.at(-1).status,'cancelled');
+    await js('document.querySelector("[data-tab=presets]").click(); document.querySelector("#savedControlsDialog .shortcuts-scroll").scrollTop=0; document.activeElement.blur()');
+    await wait(200); fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/saved-controls.png'),(await win.webContents.capturePage()).toPNG());
+    win.setSize(360,760); await wait(200);
+    assert.equal(await js('document.querySelector("#savedControlsDialog .shortcuts-scroll").scrollWidth <= document.querySelector("#savedControlsDialog .shortcuts-scroll").clientWidth'),true);
+    assert.equal(await js('document.querySelector("#savedControlsDialog .shortcuts-save").getBoundingClientRect().bottom < window.innerHeight'),true);
+    await js('document.querySelector("#savedControlsDialog .shortcuts-cancel").click()'); await until(() => js('!document.getElementById("savedControlsDialog")'));
+    win.setSize(1080,860);
   });
   let shortcutBindings;
   const openShortcuts = async () => {
@@ -378,12 +459,20 @@ async function run() {
     win.showInactive();
     await js('api.demo(true)'); await until(async () => await js('appState.connection.status') === 'demo');
     await js('api.setPrefs({...prefs,theme:"light"})');
+    await js('document.getElementById("btn-blinds").click()'); await wait(200);
+    fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/rooms-light.png'),(await win.webContents.capturePage()).toPNG());
+    await js('api.setPrefs({...prefs,theme:"dark"})'); await wait(200);
+    fs.writeFileSync(path.resolve(__dirname,'../docs/screenshots/rooms-dark.png'),(await win.webContents.capturePage()).toPNG());
+    await js('api.setPrefs({...prefs,theme:"light"})');
     await js('currentMainView="home"; showHome(); document.activeElement.blur(); window.scrollTo(0,0); clearTimeout(showSceneRunToast._hideTimer); document.getElementById("sceneRunToast")?.classList.remove("is-visible")');
     const output=path.resolve(__dirname,'../docs/screenshots'); fs.mkdirSync(output,{recursive:true});
     await wait(250); fs.writeFileSync(path.join(output,'home-light.png'),(await win.webContents.capturePage()).toPNG());
     await js('api.setPrefs({...prefs,theme:"dark"})');
     await js('navigateToRoomShades(allRooms[0])');
     await wait(250); fs.writeFileSync(path.join(output,'room-dark.png'),(await win.webContents.capturePage()).toPNG());
+    await js('api.setPrefs({...prefs,theme:"light"}); navigateToRoomShades(allRooms.find(r=>r.id==="2"))');
+    await wait(200); fs.writeFileSync(path.join(output,'shade-handles.png'),(await win.webContents.capturePage()).toPNG());
+    await js('api.setPrefs({...prefs,theme:"dark"}); navigateToRoomShades(allRooms[0])');
     await js('document.getElementById("shade-appearance-11").click()');
     await wait(100); fs.writeFileSync(path.join(output,'appearance-editor.png'),(await win.webContents.capturePage()).toPNG());
     await js('document.getElementById("shadeAppearanceDialog").close()');

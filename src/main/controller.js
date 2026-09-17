@@ -158,13 +158,15 @@ class Controller extends EventEmitter {
       if (epoch === this.epoch) { delete this.state.pending[key]; this.publish(); }
     }
   }
-  moveShade({ id, positions }) {
+  moveShade({ id, positions }, origin = null) {
     const shade = this.shade(id);
     validatePositions(shade, positions);
+    this.emit('intent', { ids: [id], origin });
     return this.command(`shade:${id}`, client => client.setPositions(shade, positions), { id, positions });
   }
-  shadeAction({ id, action }) {
+  shadeAction({ id, action }, origin = null) {
     const shade = this.shade(id);
+    if (['stop', 'jog'].includes(action)) this.emit('intent', { ids: [id], origin });
     if (action === 'stop') return this.command(`stop:${id}`, async client => {
       await client.stopShade(id);
       // A stop acknowledgment freezes the estimate; only a report confirms the position.
@@ -174,11 +176,12 @@ class Controller extends EventEmitter {
       }
     });
     if (action === 'jog') return this.command(`shade:${id}`, client => client.jogShade(id));
-    return this.moveShade({ id, positions: presetFor(shade, action) });
+    return this.moveShade({ id, positions: presetFor(shade, action) }, origin);
   }
   activateScene(id) {
     this.requireConnection();
     if (!this.state.snapshot.scenes.some(scene => scene.id === id)) throw new Error('This scene is no longer available.');
+    this.emit('intent', { ids: this.state.snapshot.shades.map(shade => shade.id), origin: null });
     return this.command(`scene:${id}`, client => client.activateScene(id));
   }
   async roomAction({ roomId, action }) {
@@ -189,6 +192,7 @@ class Controller extends EventEmitter {
     const stopVersion = this.stopVersion || 0;
     const key = `${action === 'stop' ? 'room-stop' : 'room'}:${roomId}`; if (this.state.pending[key]) throw new Error('A room action is already in progress.');
     const shades = this.state.snapshot.shades.filter(shade => roomId === null || shade.roomId === roomId);
+    this.emit('intent', { ids: shades.map(shade => shade.id), origin: null });
     const epoch = this.epoch; const results = new Array(shades.length); let index = 0;
     this.state.pending[key] = true; this.state.feedback[key] = { kind: 'pending', message: 'Sending room commands…' }; this.publish();
     await Promise.all(Array.from({ length: Math.min(3, shades.length) }, async () => {
@@ -322,6 +326,7 @@ class Controller extends EventEmitter {
     this.eventRevision = (this.eventRevision || 0) + 1;
     if (shade) this.shadeRevisions.set(shade.id, this.eventRevision);
     if (['scene-activated', 'scene-deactivated'].includes(event.evt)) this.sceneRevision = this.eventRevision;
+    this.emit('gateway-event', event);
     this.publish();
   }
   dispose() {
