@@ -1,114 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="stylesheet" type="text/css" href="../assets/body_style.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('powerview-theme');
+                if (t !== 'light' && t !== 'dark') {
+                    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="../assets/body_style.css">
     <title>Settings</title>
-
 </head>
 <body>
 <h1>Settings</h1>
 <div class="container">
     <div class="input-group">
-        <label for="ipAddress">PowerView gateway IP Address:</label>
-        <input type="text" id="ipAddress" placeholder="e.g., 192.168.1.1">
+        <label for="ipAddress">PowerView gateway IP address</label>
+        <input type="text" id="ipAddress" placeholder="e.g. 192.168.1.10" autocomplete="off">
     </div>
-    <div class="button-group">
-        <button id="scanButton">Scan Network</button>
-        <button id="saveButton">Save</button>
-        <button id="cancelButton">Cancel</button>
+    <div class="button-group button-group-wrap">
+        <button type="button" id="testConnectionButton" class="btn-secondary">Test connection</button>
+        <button type="button" id="openSwaggerButton" class="btn-secondary">Open Swagger UI</button>
     </div>
-    <div id="scan-results"></div>
+    <div class="button-group button-group-wrap">
+        <button type="button" id="discoverButton" class="btn-secondary">Find via mDNS</button>
+        <button type="button" id="scanButton" class="btn-secondary">Scan network</button>
+        <button type="button" id="saveButton" class="btn-primary">Save</button>
+        <button type="button" id="cancelButton" class="btn-ghost">Cancel</button>
+    </div>
     <div id="messages"></div>
+    <div id="scan-results"></div>
     <div id="progress-bar-container">
         <div id="progress-bar"></div>
         <div id="progress-text">0%</div>
     </div>
-    <div id="instruction-message" class="instruction-message">
-        Please either enter the IP address manually or scan the network to find your PowerView gateway(s).
-    </div>
+    <p id="instruction-message" class="instruction-message">
+        Enter the gateway IP manually, use <strong>Find via mDNS</strong> for <code>powerview-g3.local</code>, or run a full subnet scan.
+        <strong>Test connection</strong> checks port 80 (same as the app). <strong>Open Swagger UI</strong> opens port <code>3002</code> in your browser.
+    </p>
 </div>
 
 <script>
     const { ipcRenderer } = require('electron');
 
-    // Load current IP address
-    ipcRenderer.invoke('get-config').then(config => {
+    function esc(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function showMessage(html, className) {
+        const el = document.getElementById('messages');
+        el.innerHTML = html ? `<div class="${className || 'info-message'}">${html}</div>` : '';
+    }
+
+    ipcRenderer.invoke('get-config').then((config) => {
         document.getElementById('ipAddress').value = config.ipAddress || '';
     });
 
-    document.getElementById('saveButton').addEventListener('click', () => {
-        const ipAddress = document.getElementById('ipAddress').value;
-        ipcRenderer.send('save-ip-address', ipAddress);
+    function saveAndClose(ip) {
+        ipcRenderer.send('save-ip-address', ip);
         window.close();
+    }
+
+    document.getElementById('saveButton').addEventListener('click', async () => {
+        const ipAddress = document.getElementById('ipAddress').value.trim();
+        if (!ipAddress) {
+            showMessage('Enter an IP address or discover one first.', 'error-message');
+            return;
+        }
+        showMessage('Checking gateway…', 'scanning-message');
+        const res = await ipcRenderer.invoke('validate-gateway', ipAddress);
+        if (res.ok) {
+            saveAndClose(ipAddress);
+            return;
+        }
+        showMessage(
+            `${res.error} <button type="button" class="btn-inline" id="saveAnyway">Save anyway</button>`,
+            'error-message'
+        );
+        document.getElementById('saveAnyway').addEventListener('click', () => saveAndClose(ipAddress));
     });
 
-    document.getElementById('cancelButton').addEventListener('click', () => {
-        window.close();
+    document.getElementById('cancelButton').addEventListener('click', () => window.close());
+
+    document.getElementById('testConnectionButton').addEventListener('click', async () => {
+        const ipAddress = document.getElementById('ipAddress').value.trim();
+        if (!ipAddress) {
+            showMessage('Enter an IP address first.', 'error-message');
+            return;
+        }
+        showMessage('Testing gateway…', 'scanning-message');
+        const res = await ipcRenderer.invoke('validate-gateway', ipAddress);
+        if (res.ok) {
+            showMessage('Gateway reachable on port 80.', 'found-message');
+        } else {
+            showMessage(res.error || 'Cannot reach gateway.', 'error-message');
+        }
+    });
+
+    document.getElementById('openSwaggerButton').addEventListener('click', async () => {
+        const ipAddress = document.getElementById('ipAddress').value.trim();
+        if (!ipAddress) {
+            showMessage('Enter an IP address first.', 'error-message');
+            return;
+        }
+        showMessage('Checking Swagger on port 3002…', 'scanning-message');
+        const prep = await ipcRenderer.invoke('ensure-swagger-ui-ready', ipAddress);
+        if (!prep.ok) {
+            showMessage(prep.error || 'Could not reach Swagger.', 'error-message');
+            return;
+        }
+        const url = `http://${ipAddress}:3002/#/`;
+        const r = await ipcRenderer.invoke('open-external-url', url);
+        if (r && r.ok) {
+            showMessage(`Opened Swagger in your browser: <code>${url}</code>`, 'found-message');
+        } else {
+            showMessage((r && r.error) || 'Could not open browser.', 'error-message');
+        }
+    });
+
+    document.getElementById('discoverButton').addEventListener('click', async () => {
+        showMessage('Resolving gateway on your network…', 'scanning-message');
+        const r = await ipcRenderer.invoke('discover-gateway');
+        if (r.error) {
+            showMessage(r.error, 'error-message');
+            return;
+        }
+        document.getElementById('ipAddress').value = r.ip;
+        showMessage(`Found <strong>${r.hostname}</strong> → ${r.ip}`, 'found-message');
     });
 
     document.getElementById('scanButton').addEventListener('click', () => {
         const resultsElement = document.getElementById('scan-results');
-        const messagesElement = document.getElementById('messages');
         const progressBarContainer = document.getElementById('progress-bar-container');
         const progressBar = document.getElementById('progress-bar');
         const progressText = document.getElementById('progress-text');
         const instructionMessage = document.getElementById('instruction-message');
 
         resultsElement.innerHTML = '';
-        messagesElement.innerHTML = '<div class="scanning-message">Scanning network, please be patient...</div>';
+        showMessage('Scanning subnet — usually a few seconds (parallel pings).', 'scanning-message');
         progressBarContainer.style.display = 'block';
         progressBar.style.width = '0%';
         progressText.textContent = '0%';
-        instructionMessage.style.display = 'none';  // Hide instruction message
+        instructionMessage.style.display = 'none';
 
         ipcRenderer.invoke('scan-network').then((devices) => {
-            messagesElement.innerHTML = '';
+            showMessage('', '');
+
+            if (devices && devices.error) {
+                resultsElement.innerHTML = `<div class="error-message">${devices.error}</div>`;
+                progressBarContainer.style.display = 'none';
+                instructionMessage.style.display = 'block';
+                return;
+            }
 
             if (devices.length > 0) {
-                resultsElement.innerHTML = devices.map(device => `
-                    <div class="device" data-ip="${device.ip}">
-                        IP: ${device.ip}, Name: ${device.name}
+                const sorted = [...devices].sort((a, b) => a.ip.localeCompare(b.ip));
+                resultsElement.innerHTML = sorted
+                    .map(
+                        (device) => `
+                    <div class="device" data-ip="${esc(device.ip)}">
+                        <div class="device-info">
+                            <span class="device-ip">${esc(device.ip)}</span>
+                            <span class="device-name">${esc(device.name)}</span>
+                        </div>
+                        <button type="button" class="btn-use-ip">Use this IP</button>
                     </div>
-                `).join('');
-                if (devices.length === 1) {
-                    messagesElement.innerHTML += '<div class="found-message">Gateway has been found!</div>';
-            }
-                if (devices.length > 1) {
-                    messagesElement.innerHTML += '<div class="found-message">Gateways have been found!</div>';
-                    const sortedDevices = devices.sort((a, b) => a.ip.localeCompare(b.ip));
-                    const adviceMessage = `
-                        <div class="advice-message">
-                            Multiple gateways found. The gateway with the lower IP address (e.g., ${sortedDevices[0].ip})
-                            is likely the primary gateway.
-                        </div>`;
-                    messagesElement.innerHTML += adviceMessage;
-                }
+                `
+                    )
+                    .join('');
 
-                // Attach event listeners to device elements for selecting IP address
-                document.querySelectorAll('.device').forEach(deviceElement => {
-                    deviceElement.addEventListener('click', () => {
-                        const ipAddress = deviceElement.getAttribute('data-ip');
-                        document.getElementById('ipAddress').value = ipAddress;
-                        ipcRenderer.send('save-ip-address', ipAddress);
-                        window.close();
+                const msgEl = document.getElementById('messages');
+                let blocks = '<div class="found-message">Select a gateway below.</div>';
+                if (sorted.length > 1) {
+                    blocks += `<div class="advice-message">Multiple gateways: lower IP (e.g. ${sorted[0].ip}) is often the primary.</div>`;
+                }
+                msgEl.innerHTML = blocks;
+
+                document.querySelectorAll('.device').forEach((row) => {
+                    const ip = row.getAttribute('data-ip');
+                    row.querySelector('.btn-use-ip').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        document.getElementById('ipAddress').value = ip;
+                        showMessage(`Filled <strong>${ip}</strong>. Click Save to connect.`, 'found-message');
+                    });
+                    row.addEventListener('click', () => {
+                        document.getElementById('ipAddress').value = ip;
                     });
                 });
             } else {
-                resultsElement.innerHTML = '<div class="found-message">No gateways found.</div>';
+                resultsElement.innerHTML = '<div class="error-message">No Hunter Douglas gateways found on this subnet.</div>';
             }
 
             progressBarContainer.style.display = 'none';
+            instructionMessage.style.display = 'block';
         });
     });
 
     ipcRenderer.on('progress-update', (event, progress) => {
         const progressBar = document.getElementById('progress-bar');
         const progressText = document.getElementById('progress-text');
-        const newWidth = (progress.current / progress.total) * 100;
-        progressBar.style.width = `${newWidth}%`;
-        progressText.textContent = `${Math.round(newWidth)}%`;
+        const pct = (progress.current / progress.total) * 100;
+        progressBar.style.width = `${pct}%`;
+        progressText.textContent = `${Math.round(pct)}%`;
+    });
+
+    ipcRenderer.on('set-data-theme', (_e, mode) => {
+        const m = mode === 'dark' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', m);
+        try {
+            localStorage.setItem('powerview-theme', m);
+        } catch (e) {}
     });
 </script>
 </body>

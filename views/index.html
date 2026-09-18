@@ -1,57 +1,174 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="../src/renderer/theme-init.js"></script>
+    <link rel="stylesheet" href="../assets/fontawesome/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="../assets/style.css">
-    <title>PowerView App (By Benzo)</title>
+    <link rel="stylesheet" href="../assets/desktop.css">
+    <link rel="stylesheet" href="../assets/shade-controls.css">
+    <link rel="stylesheet" href="../assets/shortcuts.css">
+    <link rel="stylesheet" href="../assets/saved-controls.css">
+    <link rel="stylesheet" href="../assets/home-insights.css">
+    <title>PowerView</title>
 </head>
-<body>
-<div id="content">
-    <h2>PowerView app (By Benzo)</h2>
-    <p>Select an option below to navigate.</p>
+<body class="app-initial-load">
+<div id="demoModeBar" class="demo-mode-bar" hidden>Demo home · simulated controls <button id="exitDemoButton" type="button">Exit demo</button></div>
+<div id="app-status-banner" class="app-status-banner hidden" role="status" aria-live="polite"></div>
+<div id="connectionHealthBar" class="connection-health-bar hidden" role="region" aria-label="Gateway connection">
+    <span class="connection-health-item" id="connectionHealthSse" title="Live event stream to the hub"></span>
+    <span class="connection-health-sep" aria-hidden="true">·</span>
+    <span class="connection-health-item" id="connectionHealthShades" title="Last successful shade list refresh"></span>
+    <button type="button" id="connectionHealthRefreshBtn" class="connection-health-refresh">Refresh</button>
 </div>
-
-<!-- Information about entering the IP address -->
-<div id="info">
-    <h3>Important Information</h3>
-    <p>To ensure the proper functionality of the PowerView app, you must enter the IP address of your local network device.</p>
-    <h4>How to Enter the IP Address:</h4>
-    <ol>
-        <li><b>Click on the Settings Button</b>: Locate the settings button in the top-right corner of the application window. This button is represented by a cogwheel icon (⚙️).</li>
-        <li><b>Open the Settings Window</b>: Clicking the settings button will open the settings window.</li>
-        <li><b>Enter the IP Address</b>: In the settings window, you will find a field labeled "IP Address." Please enter the IP address of your local network device in this field. The IP address should be in the format <code>192.168.1.1</code>.</li>
-        <li><b>Save the IP Address</b>: After entering the IP address, click the "Save" button to store this information. The application will use this IP address to connect to your local network device.</li>
-        <li><b>Close the Settings Window</b>: Once the IP address is saved, you can close the settings window.</li>
-    </ol>
-
-    <h4>Where to Find the PowerView Primary Gateway IP:</h4>
-    <ol>
-        <li><b>Check Your Router's GUI</b>: Access your router's graphical user interface (GUI) to view all connected devices. Look for a device named "PowerView-G3." If there is more than one PowerView gateway, the primary gateway is typically the one with the lower IP address (e.g., <code>192.168.0.101</code> is likely the primary gateway compared to <code>192.168.0.102</code>).</li>
-        <li><b>Use the Browser</b>: Type or copy this URL into your browser: <a href="http://powerview-g3.local/gateway/swagger?enable=true" target="_blank">http://powerview-g3.local/gateway/swagger?enable=true</a>. This will enable/start the Swagger UI for the PowerView gateway. Note that it uses port 3002, while the execution server uses port 80.</li>
-    </ol>
+<div id="content" class="content-boot-loading" aria-busy="true" aria-live="polite" aria-label="Loading blinds and rooms">
+    <div class="boot-skeleton" aria-hidden="true">
+        <div class="boot-skeleton-title"></div>
+        <div class="boot-skeleton-sort"></div>
+        <div class="boot-skeleton-grid">
+            <div class="boot-skeleton-card"></div>
+            <div class="boot-skeleton-card"></div>
+            <div class="boot-skeleton-card"></div>
+            <div class="boot-skeleton-card"></div>
+            <div class="boot-skeleton-card"></div>
+            <div class="boot-skeleton-card"></div>
+        </div>
+    </div>
 </div>
 
 <!-- Bottom navigation bar -->
-<div class="bottom-nav">
+<nav class="bottom-nav" aria-label="Main navigation">
+    <div class="sidebar-brand"><span class="brand-mark"><i class="fas fa-window-maximize" aria-hidden="true"></i></span><span>PowerView<small>by BenZo</small></span></div>
+    <div class="sidebar-label">YOUR HOME</div>
+    <button id="btn-home"><i class="fas fa-house" aria-hidden="true"></i> Home</button>
     <button id="btn-blinds">
         <i class="fas fa-window-maximize"></i> Blinds
     </button>
     <button id="btn-scenes">
         <i class="fa-solid fa-play"></i> Scenes
     </button>
-</div>
+    <button id="btn-schedules"><i class="fas fa-calendar-days" aria-hidden="true"></i> Schedules</button>
+    <button id="btn-health"><i class="fas fa-heart-pulse" aria-hidden="true"></i> Health</button>
+</nav>
 
-<!-- Info and Settings buttons -->
+<div class="command-search">
+    <label for="homeSearch"><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Find a room, shade or scene</span></label>
+    <input id="homeSearch" type="search" placeholder="Find a room, shade or scene…" autocomplete="off" aria-controls="searchResults" aria-expanded="false">
+    <kbd>⌘ K</kbd>
+    <div id="searchResults" class="search-results" hidden></div>
+</div>
+<!-- Theme, Info and Settings buttons -->
 <div class="top-buttons">
-    <div class="info-button" id="infoButton">
-        <i class="fas fa-info-circle"></i>
-    </div>
-    <div class="settings-button" id="settingsButton">
-        <i class="fas fa-cog"></i>
+    <button type="button" class="theme-button" id="themeButton" aria-label="Light mode. Click for dark mode.">
+        <i class="fas fa-sun" aria-hidden="true"></i>
+    </button>
+    <button type="button" class="info-button" id="infoButton" aria-label="Help and tips" aria-haspopup="dialog" aria-expanded="false">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+    </button>
+    <button type="button" class="settings-button" id="settingsButton" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false">
+        <i class="fas fa-cog" aria-hidden="true"></i>
+    </button>
+</div>
+
+<div id="settingsOverlay" class="settings-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settingsOverlayTitle" aria-hidden="true">
+    <div class="settings-overlay-backdrop" id="settingsBackdrop" aria-hidden="true"></div>
+    <div class="settings-overlay-panel">
+        <header class="settings-overlay-header">
+            <h1 id="settingsOverlayTitle">Settings</h1>
+            <button type="button" class="settings-overlay-header-close" id="settingsPanelCloseBtn">Close</button>
+        </header>
+        <div class="settings-overlay-body">
+            <div class="container">
+                <div class="input-group">
+                    <label for="ipAddress">PowerView gateway address</label>
+                    <input type="text" id="ipAddress" placeholder="e.g. powerview-g3.local or 192.168.1.10" autocomplete="off">
+                </div>
+                <div class="button-group button-group-wrap">
+                    <button type="button" id="testConnectionButton" class="btn-secondary">Test connection</button>
+
+                </div>
+                <div class="button-group button-group-wrap">
+                    <button type="button" id="discoverButton" class="btn-secondary">Find via mDNS</button>
+                    <button type="button" id="scanButton" class="btn-secondary">Scan network</button>
+                    <button type="button" id="saveButton" class="btn-primary">Connect</button>
+                    <button type="button" id="cancelButton" class="btn-ghost">Cancel</button>
+                </div>
+                <label class="tray-preference"><input type="checkbox" id="closeToTray"> Keep PowerView in the tray when closing the window</label>
+                <button type="button" id="keyboardShortcutsButton" class="shortcut-settings-link" aria-haspopup="dialog"><i class="fas fa-keyboard" aria-hidden="true"></i><span><strong>Keyboard shortcuts</strong><small>Control your home from any app</small></span><span aria-hidden="true">→</span></button>
+                <label for="networkInterface">Network for subnet scan</label><select id="networkInterface"></select>
+                <button id="stopScanButton" type="button" class="btn-secondary" hidden>Stop discovery</button>
+                <div id="messages" role="status" aria-live="polite"></div>
+                <div id="scan-results"></div>
+                <details class="advanced-settings"><summary>Advanced gateway tools</summary><p>Explore the gateway API in your browser.</p><button type="button" id="openSwaggerButton" class="btn-secondary">Open Swagger UI</button></details>
+                <div id="progress-bar-container">
+                    <div id="progress-bar"></div>
+                    <div id="progress-text">0%</div>
+                </div>
+                <p id="instruction-message" class="instruction-message">Find via mDNS, or enter the primary Gen 3 gateway's address. Network scans use the selected interface and its subnet (up to 1,022 hosts). Test connection verifies gateway identity and home data. Connect saves an address only after it works.</p>
+            </div>
+        </div>
     </div>
 </div>
 
+<div id="infoHelpOverlay" class="info-help-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="infoHelpTitle" aria-hidden="true">
+    <div class="info-help-overlay-backdrop" id="infoHelpBackdrop" aria-hidden="true"></div>
+    <div class="info-help-panel">
+        <header class="info-help-header">
+            <h1 id="infoHelpTitle">PowerView App — help</h1>
+            <button type="button" class="info-help-close" id="infoHelpCloseBtn">Close</button>
+        </header>
+        <div class="info-help-body">
+            <p class="info-help-lead">This app controls Hunter Douglas PowerView shades and scenes through your <b>primary gateway</b> on your home network.</p>
+
+            <h2 class="info-help-h2">Home</h2><p>Home brings whole-home controls, favorite scenes, pinned shades and room shortcuts together. Star a shade in Blinds to pin it. Single-shade presets use percent closed; dual-rail presets use the bottom edge’s percentage from the top. Reported values come from the gateway; command acceptance does not mean motion is complete.</p>
+            <h2 class="info-help-h2">Blinds</h2>
+            <p>Pick a <b>room</b>, then adjust each shade. Rooms can be sorted by gateway order, A–Z, or recent. Drag to choose the dashed target, then release to move. The solid fabric follows movement; between gateway reports its position is marked approximate. The final report settles the graphic. For dual-rail shades, drag either circular edge handle directly. When the edges meet, pull up for the top edge or down for the bottom edge. Reversing a drag keeps the same edge. <b>Fine adjustment</b> contains independent numeric positions and bottom-edge nudges/presets. <b>Open shade, Close shade and Stop</b> control the whole shade.</p>
+            <h2 class="info-help-h2">Appearance</h2>
+            <p>Use the <b>palette icon</b> on a shade to choose blinds or curtains, fabric style and color. For curtains, choose a <b>center-opening pair</b> or a <b>single curtain opening to the left or right</b>. Curtains drag horizontally; blinds drag vertically. Choices are saved per device and home. Real two-rail devices keep both rails visible. Demo devices can switch to curtains and back; Reset restores their original controls and appearance.</p>
+
+            <h2 class="info-help-h2">Saved controls &amp; temporary privacy</h2>
+            <p>On <b>Home → Saved controls</b>, save current reported positions as a named preset or create a group of selected shades across rooms. These can also be assigned global shortcuts. <b>Temporary privacy</b> closes a selection, starts a countdown once closure is confirmed, and restores the previous positions. Keep PowerView running and your computer awake. New commands, reported changes, connection loss, sleep or quitting cancel the return. <b>Restore now</b> returns early; <b>Cancel timer</b> keeps the current positions. Existing Stop controls halt physical movement.</p>
+
+            <h2 class="info-help-h2">Scenes</h2>
+            <p>Use <b>Scenes</b> in the navigation to run gateway scenes. Star favorites and use recent chips for quick access.</p>
+            <h2 class="info-help-h2">Schedules, health &amp; activity</h2>
+            <p><b>Schedules</b> shows your saved PowerView routines, with weekday and enabled/paused filters. Clock times stay as saved in your home; sunrise/sunset entries keep their relative offsets. Check highlighted setup errors in the PowerView mobile app, where schedules are managed. <b>Health</b> shows device availability, approximate battery ranges, power source, reported signal and firmware. Its <b>Activity</b> view separates app command acceptance from gateway reports and failures. It keeps up to 200 entries per home during this app session; quitting clears the history.</p>
+            <h2 class="info-help-h2">Global keyboard shortcuts</h2>
+            <p>Open <b>Settings → Keyboard shortcuts</b> to assign your own keys to any shade, a whole room, the whole home, or a scene. You can also show/hide PowerView or refresh its status. Shortcuts work while PowerView is running, even when another app is focused. Quitting releases them. They are saved separately for each gateway and the demo. Shortcuts pause while this editor is open; Save applies your changes. Percentage actions use <b>percent closed</b>.</p>
+
+            <h2 class="info-help-h2">Connection &amp; settings</h2>
+            <p>Set the primary gateway <b>address</b> under the gear icon (settings opens in this window). Use <b>Test connection</b> or <b>Open Swagger UI</b> if you need to check the hub — Swagger on port <b>3002</b> lists every REST path (scenes, shades, rooms, automation, and more) and is the best place to discover new capabilities. A yellow bar means the app cannot reach the gateway (wrong IP, hub offline, or network issue).</p>
+
+            <h2 class="info-help-h2">Tips</h2>
+            <ul class="info-help-list">
+                <li><b>Theme</b>: toggle light and dark with the sun/moon button on the main window.</li>
+                <li><b>Command+K</b> or <b>Ctrl+K</b> focuses search. Find a room or shade, or run a scene. Use arrow keys to choose a result and Enter to open it.</li>
+                <li><b>Escape</b> closes settings or help if they are open; otherwise it leaves a room's shade view and returns to all rooms.</li>
+                <li><b>Ctrl+B</b> / <b>Ctrl+S</b> jump to Blinds or Scenes.</li>
+                <li><b>Ctrl+1</b> through <b>Ctrl+9</b> open the 1st–9th room in the <b>current</b> Blinds grid order (Gateway / A–Z / Recent). Use the <b>Control</b> key (not Command on Mac). Top-row and numpad digits both work while this window is focused. Number badges on tiles match the shortcut.</li>
+                <li><b>Help</b> opens on top of this window — press <b>Escape</b>, tap <b>Close</b>, or click the dimmed area outside the panel to dismiss.</li>
+            </ul>
+
+            <h2 class="info-help-h2">Finding the gateway IP</h2>
+            <p>On your router's device list, look for <b>PowerView-G3</b> (or similar). Gateway discovery checks identity; the address order does not indicate the primary. Your hub may also answer at <code>powerview-g3.local</code>.</p>
+        </div>
+    </div>
+</div>
+
+<script src="../src/shared/shade-motion.js"></script>
+<script src="../src/shared/curtain-geometry.js"></script>
+<script src="../src/shared/shortcut-format.js"></script>
+<script src="../src/shared/home-insights.js"></script>
 <script src="../src/renderer/renderer.js"></script>
-<script src="../src/logic/hide_buttons.js" ></script>
+<script src="../src/renderer/shade-appearance.js"></script>
+<script src="../src/renderer/shade-control.js"></script>
+<script src="../src/renderer/app-state.js"></script>
+<script src="../src/renderer/settings.js"></script>
+<script src="../src/renderer/shortcuts.js"></script>
+<script src="../src/renderer/saved-controls.js"></script>
+<script src="../src/renderer/home-insights.js"></script>
+<script src="../src/renderer/search.js"></script>
 </body>
 </html>

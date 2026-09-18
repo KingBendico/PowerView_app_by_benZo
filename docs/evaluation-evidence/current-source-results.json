@@ -1,0 +1,69 @@
+{
+  "reviewedAt": "2026-09-16T10:23:32.401Z",
+  "source": "Local PowerView working tree supplied 16 September 2026",
+  "method": "Baseline JavaScript executed with simulated DOM, IPC and gateway responses; no Electron or hardware validation.",
+  "total": 12,
+  "verified": 12,
+  "results": [
+    {
+      "name": "HTTP failure now preserves remembered position",
+      "result": "verified",
+      "observation": "Prior failed-command state finding is fixed."
+    },
+    {
+      "name": "Acknowledgment still replaces reported position before telemetry",
+      "result": "verified",
+      "observation": "25% opening becomes 90% on HTTP acknowledgment alone."
+    },
+    {
+      "name": "Single-axis update still transmits secondary",
+      "result": "verified",
+      "observation": "Secondary is retained rather than reset, but is still sent unnecessarily."
+    },
+    {
+      "name": "The 25% preset sends 75% closed",
+      "result": "verified",
+      "observation": "Preset labels use the opposite percentage convention from the number field."
+    },
+    {
+      "name": "Gen 3 scene route has been corrected",
+      "result": "verified",
+      "observation": "http://fixture.local/home/scenes/101/activate"
+    },
+    {
+      "name": "Empty gateway configuration skips requests",
+      "result": "verified",
+      "observation": "Prior invalid http:/// request finding is fixed."
+    },
+    {
+      "name": "Transport error invokes bulk callback twice",
+      "result": "verified",
+      "observation": "Both error and loadend deliver the callback."
+    },
+    {
+      "name": "Manual refresh on room grid does not refresh rooms or scenes",
+      "result": "verified",
+      "observation": "Refresh requests only colors and shades until another navigation action."
+    },
+    {
+      "name": "Navigation away does not invalidate pending room reads",
+      "result": "verified",
+      "observation": "A late room response can reopen the room after switching to Scenes."
+    },
+    {
+      "name": "Room names now render as text",
+      "result": "verified",
+      "observation": "Prior room-heading HTML injection finding is fixed."
+    },
+    {
+      "name": "Type 9 still receives the single shade control",
+      "result": "verified",
+      "observation": "Only type 8 gets the dual-rail graphic."
+    },
+    {
+      "name": "No timeout is set on shade requests",
+      "result": "verified",
+      "observation": "The default XHR timeout is unlimited."
+    }
+  ]
+}
