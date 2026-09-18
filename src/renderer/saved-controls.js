@@ -1,5 +1,5 @@
 (function setupSavedControls() {
-    let model = null, opening = false;
+    let model = null, opening = false, routines = [];
     const active = timer => ['closing', 'waiting', 'restoring'].includes(timer.status);
     const button = (label, action, className = '') => { const el = document.createElement('button'); el.type = 'button'; el.textContent = label; el.className = className; el.addEventListener('click', action); return el; };
     const text = (tag, value, className = '') => { const el = document.createElement(tag); el.textContent = value; el.className = className; return el; };
@@ -53,6 +53,36 @@
         }
         card.appendChild(controls); return card;
     }
+    function routineCard(routine) {
+        const card = document.createElement('article'); card.className = 'saved-card routine-card'; card.appendChild(text('strong', routine.name));
+        card.appendChild(text('p', routine.steps.map(step => step.label).join(' → ')));
+        const controls = document.createElement('div'); controls.className = 'saved-card-actions';
+        controls.appendChild(button('Run routine', () => task(async () => { await api.runRoutine(routine.id); showSceneRunToast(`${routine.name} started`); }), ''));
+        controls.appendChild(button('Remove', () => task(async () => { await api.removeRoutine(routine.id); await refreshRoutines(); }), 'saved-remove')); card.appendChild(controls); return card;
+    }
+    async function refreshRoutines() { try { routines = await api.getRoutines(); renderHome(); } catch (error) { showSceneRunToast(error.message); } }
+    async function openRoutineEditor() {
+        if (opening || document.querySelector('dialog')) return;
+        opening = true;
+        try {
+            const state = await api.getState(), dialog = document.createElement('dialog'); dialog.className = 'shortcuts-dialog saved-dialog'; dialog.setAttribute('aria-labelledby', 'routineTitle');
+            dialog.innerHTML = '<form><header class="shortcuts-header"><div><div class="page-eyebrow">LOCAL AUTOMATION</div><h2 id="routineTitle">Create routine</h2></div><button type="button" class="shortcuts-close" aria-label="Close routine editor">×</button></header><div class="shortcuts-scroll"><label class="saved-name-field">Name<input id="routineName" maxlength="60" placeholder="e.g. Movie time" required></label><div class="routine-builder"><label>Step<select id="routineType"><option value="scene">Run scene</option><option value="preset">Apply saved position</option><option value="group">Control saved group</option><option value="delay">Wait</option></select></label><label id="routineTargetLabel">Action<select id="routineTarget"></select></label><label id="routineActionLabel">Action<select id="routineAction"></select></label><button type="button" class="btn-secondary" id="routineAdd">Add step</button></div><ol id="routineSteps" class="routine-steps"></ol><p class="shortcuts-error" role="alert" hidden></p></div><footer><button type="button" class="shortcuts-cancel">Cancel</button><button type="submit" class="shortcuts-save">Save routine</button></footer></form>';
+            const steps = [], type = dialog.querySelector('#routineType'), target = dialog.querySelector('#routineTarget'), action = dialog.querySelector('#routineAction'), targetLabel = dialog.querySelector('#routineTargetLabel'), actionLabel = dialog.querySelector('#routineActionLabel'), list = dialog.querySelector('#routineSteps');
+            function updateFields() {
+                const value = type.value; target.replaceChildren(); action.replaceChildren(); targetLabel.hidden = false; actionLabel.hidden = false;
+                if (value === 'scene') for (const item of state.snapshot?.scenes || []) target.appendChild(new Option(item.name, item.id));
+                if (value === 'preset') for (const item of model.presets) target.appendChild(new Option(item.name, item.id));
+                if (value === 'group') for (const item of model.groups) target.appendChild(new Option(item.name, item.id));
+                if (value === 'delay') { targetLabel.firstChild.textContent = 'Seconds'; target.appendChild(new Option('10 seconds', '10')); target.appendChild(new Option('30 seconds', '30')); target.appendChild(new Option('60 seconds', '60')); actionLabel.hidden = true; }
+                else { targetLabel.firstChild.textContent = value === 'scene' ? 'Scene' : value === 'preset' ? 'Saved position' : 'Saved group'; for (const [label, value] of value === 'preset' ? [['Apply', 'activate']] : [['Open', 'open'], ['Close', 'close'], ['Stop', 'stop']]) action.appendChild(new Option(label, value)); }
+            }
+            function renderSteps() { list.replaceChildren(); steps.forEach((step, index) => { const row = document.createElement('li'); row.textContent = step.label; const remove = button('Remove', () => { steps.splice(index, 1); renderSteps(); }, 'saved-remove'); row.appendChild(remove); list.appendChild(row); }); }
+            type.addEventListener('change', updateFields); updateFields();
+            dialog.querySelector('#routineAdd').addEventListener('click', () => { const value = type.value; if (value === 'delay') steps.push({ kind: 'delay', ms: Number(target.value) * 1000, label: `Wait ${target.value} seconds` }); else { const item = value === 'scene' ? state.snapshot.scenes.find(x => x.id === target.value) : model[value === 'preset' ? 'presets' : 'groups'].find(x => x.id === target.value); steps.push(value === 'scene' ? { kind: 'scene', id: target.value, label: item?.name || 'Scene' } : { kind: 'saved', savedKind: value === 'preset' ? 'presets' : 'groups', id: target.value, action: action.value, label: `${item?.name || 'Saved control'} · ${action.value}` }); } renderSteps(); });
+            dialog.querySelector('form').addEventListener('submit', async event => { event.preventDefault(); const error = dialog.querySelector('.shortcuts-error'); if (!steps.length) { error.textContent = 'Add at least one step.'; error.hidden = false; return; } try { await api.saveRoutine({ name: dialog.querySelector('#routineName').value, steps: steps.map(({ label, ...step }) => step) }); dialog.close(); await refreshRoutines(); } catch (failure) { error.textContent = failure.message; error.hidden = false; } });
+            for (const el of dialog.querySelectorAll('.shortcuts-close,.shortcuts-cancel')) el.addEventListener('click', () => dialog.close()); dialog.addEventListener('close', () => dialog.remove(), { once: true }); document.body.appendChild(dialog); dialog.showModal();
+        } catch (error) { showSceneRunToast(error.message); } finally { opening = false; }
+    }
     function renderHome() {
         const root = document.getElementById('savedControlsHome'); if (!root || !model) return;
         root.replaceChildren();
@@ -63,6 +93,8 @@
         quick.appendChild(button('◷  Temporary privacy', () => open('privacy')));
         quick.appendChild(button('+ Save a position', () => open('presets')));
         quick.appendChild(button('+ Create a group', () => open('groups'))); root.appendChild(quick);
+        const routineHeader = document.createElement('div'); routineHeader.className = 'home-section-heading'; routineHeader.appendChild(text('h3', 'Local routines')); routineHeader.appendChild(button('+ Create routine', openRoutineEditor, 'text-action')); root.appendChild(routineHeader);
+        const routineGrid = document.createElement('div'); routineGrid.className = 'saved-controls-grid'; for (const routine of routines.slice(0, 3)) routineGrid.appendChild(routineCard(routine)); root.appendChild(routineGrid);
         const cards = document.createElement('div'); cards.className = 'saved-controls-grid';
         for (const kind of ['presets', 'groups']) for (const entry of model[kind].slice(0, 3)) cards.appendChild(savedCard(entry, kind));
         root.appendChild(cards);
@@ -147,5 +179,6 @@
     window.savedControls = { open, mountHome(parent) { const root = document.createElement('section'); root.id = 'savedControlsHome'; parent.appendChild(root); renderHome(); } };
     api.onSavedControls(state => { model = state; renderHome(); });
     api.getSavedControls().then(state => { model = state; renderHome(); }).catch(error => showSceneRunToast(error.message));
+    void refreshRoutines();
     setInterval(countdown, 1000);
 })();

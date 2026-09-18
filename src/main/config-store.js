@@ -3,7 +3,7 @@ const path = require('node:path');
 const { normalizeAddress } = require('./gateway-client');
 const { cleanSettings: cleanShortcutSettings } = require('../shared/shortcut-format');
 const { cleanHome: cleanSavedControls } = require('../shared/saved-controls-format');
-const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, shortcuts: {}, savedControls: {}, homeLayout: {}, homeHidden: {}, roomSort: 'default', prefsMigrated: false });
+const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, shortcuts: {}, savedControls: {}, routines: {}, homeLayout: {}, homeHidden: {}, roomSort: 'default', prefsMigrated: false });
 function cleanAppearance(value) {
   if (!value || !['shade', 'curtain'].includes(value.kind) || !['pleated', 'roller', 'slatted'].includes(value.fabric)
     || value.color !== null && !/^#[a-f0-9]{6}$/i.test(value.color)
@@ -53,6 +53,21 @@ function cleanConfig(raw) {
     for (const [host, value] of Object.entries(raw.savedControls).slice(0, 100)) {
       if (['__proto__', 'constructor', 'prototype'].includes(host)) continue;
       try { config.savedControls[host] = cleanSavedControls(value); } catch { /* Ignore invalid stored movement instructions. */ }
+    }
+  }
+  if (raw.routines && typeof raw.routines === 'object' && !Array.isArray(raw.routines)) {
+    for (const [host, entries] of Object.entries(raw.routines).slice(0, 100)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(host) || !Array.isArray(entries)) continue;
+      config.routines[host] = entries.slice(0, 50).flatMap(item => {
+        if (!item || typeof item.id !== 'string' || !/^[a-zA-Z0-9-]{1,64}$/.test(item.id) || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 60 || !Array.isArray(item.steps) || !item.steps.length || item.steps.length > 30) return [];
+        const steps = item.steps.flatMap(step => {
+          if (step?.kind === 'delay' && Number.isInteger(step.ms) && step.ms >= 100 && step.ms <= 300000) return [{ kind: 'delay', ms: step.ms }];
+          if (step?.kind === 'scene' && /^\d+$/.test(String(step.id))) return [{ kind: 'scene', id: String(step.id) }];
+          if (step?.kind === 'saved' && ['groups', 'presets'].includes(step.savedKind) && typeof step.id === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(step.id) && (step.savedKind === 'presets' ? step.action === 'activate' : ['open', 'close', 'stop'].includes(step.action))) return [{ kind: 'saved', savedKind: step.savedKind, id: step.id, action: step.action }];
+          return [];
+        });
+        return steps.length === item.steps.length ? [{ id: item.id, name: item.name.trim(), steps }] : [];
+      });
     }
   }
   if (raw.homeLayout && typeof raw.homeLayout === 'object' && !Array.isArray(raw.homeLayout)) {

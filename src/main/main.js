@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, session, globalShortcut, powerMonitor, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const { randomUUID } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { isIP } = require('node:net');
 const { ConfigStore, cleanConfig } = require('./config-store');
@@ -18,6 +19,7 @@ const dataArg = process.argv.find(value => value.startsWith('--data-dir='));
 if (dataArg) app.setPath('userData', path.resolve(dataArg.slice(11)));
 else if (process.argv.includes('--demo')) app.setPath('userData', path.join(app.getPath('userData'), 'demo-profile'));
 let mainWindow, tray, controller, store, shortcuts, savedControls, insights, refreshTimer, quitting = false;
+const routineRuns = new Map();
 const discovery = new Discovery();
 const scanner = new NetworkScan();
 function send(channel, payload) {
@@ -87,6 +89,50 @@ async function importSettings() {
   const address = controller.state.connection.address;
   controller.state.favorites = address ? saved.favorites[address] || { shadeIds: [], sceneIds: [] } : { shadeIds: [], sceneIds: [] };
   controller.publish(); return { canceled: false, filePath: result.filePaths[0] };
+}
+function routineHome(address) { return store.get().routines?.[address] || []; }
+function getRoutines() {
+  const state = controller.getState(), address = state.connection.address, saved = store.get().savedControls?.[address] || { groups: [], presets: [] };
+  return routineHome(address).map(routine => ({ ...routine, steps: routine.steps.map(step => step.kind === 'scene'
+    ? { ...step, label: state.snapshot?.scenes.find(scene => scene.id === step.id)?.name || `Scene ${step.id}` }
+    : step.kind === 'saved' ? { ...step, label: saved[step.savedKind]?.find(item => item.id === step.id)?.name || 'Saved control unavailable' }
+      : { ...step, label: `Wait ${Math.round(step.ms / 1000)} seconds` }) }));
+}
+function saveRoutine(value) {
+  const state = controller.getState(), address = state.connection.address;
+  if (!address || !state.snapshot || !value || typeof value !== 'object') throw new Error('Connect to a gateway before saving a routine.');
+  const name = String(value.name || '').trim(); if (!name || name.length > 60) throw new Error('Enter a routine name of up to 60 characters.');
+  if (!Array.isArray(value.steps) || !value.steps.length || value.steps.length > 30) throw new Error('Add between 1 and 30 routine steps.');
+  const saved = store.get().savedControls?.[address] || { groups: [], presets: [] };
+  const steps = value.steps.map(step => {
+    if (step?.kind === 'delay' && Number.isInteger(step.ms) && step.ms >= 100 && step.ms <= 300000) return { kind: 'delay', ms: step.ms };
+    if (step?.kind === 'scene' && state.snapshot.scenes.some(scene => scene.id === String(step.id))) return { kind: 'scene', id: String(step.id) };
+    if (step?.kind === 'saved' && ['groups', 'presets'].includes(step.savedKind) && saved[step.savedKind]?.some(item => item.id === String(step.id)) && (step.savedKind === 'presets' ? step.action === 'activate' : ['open', 'close', 'stop'].includes(step.action))) return { kind: 'saved', savedKind: step.savedKind, id: String(step.id), action: step.action };
+    throw new Error('Routine contains an invalid or unavailable step.');
+  });
+  const config = store.get(); config.routines ||= {}; const list = config.routines[address] || []; const id = typeof value.id === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(value.id) ? value.id : randomUUID();
+  const entry = { id, name, steps }; const index = list.findIndex(item => item.id === id); if (index >= 0) list[index] = entry; else { if (list.length >= 50) throw new Error('You can save up to 50 routines per home.'); list.push(entry); }
+  config.routines[address] = list; controller.state.config = store.save(config); controller.publish(); return getRoutines();
+}
+function removeRoutine(id) {
+  const state = controller.getState(), address = state.connection.address, config = store.get(); config.routines ||= {};
+  if (!config.routines[address]?.some(item => item.id === id)) throw new Error('This routine is no longer available.');
+  config.routines[address] = config.routines[address].filter(item => item.id !== id); controller.state.config = store.save(config); controller.publish(); return getRoutines();
+}
+async function runRoutine(id) {
+  const state = controller.getState(), address = state.connection.address, routine = routineHome(address).find(item => item.id === id);
+  if (!routine) throw new Error('This routine is no longer available.');
+  if (routineRuns.has(id)) throw new Error('This routine is already running.');
+  controller.requireConnection(); const run = { cancelled: false }; routineRuns.set(id, run);
+  try {
+    for (const step of routine.steps) {
+      if (run.cancelled) throw new Error('Routine cancelled.');
+      if (step.kind === 'delay') await new Promise(resolve => setTimeout(resolve, step.ms));
+      else if (step.kind === 'scene') await controller.activateScene(step.id);
+      else await savedControls.run({ address, kind: step.savedKind, id: step.id, action: step.action });
+    }
+    send('command-notice', `${routine.name}: routine completed.`); return { ok: true };
+  } finally { routineRuns.delete(id); }
 }
 function showWindow(action) {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -237,6 +283,10 @@ function installHandlers() {
   handle('set-favorites', setFavorites);
   handle('export-settings', exportSettings);
   handle('import-settings', importSettings);
+  handle('get-routines', getRoutines);
+  handle('save-routine', saveRoutine);
+  handle('remove-routine', id => removeRoutine(String(id)));
+  handle('run-routine', id => runRoutine(String(id)));
   handle('get-shortcuts', () => shortcuts.getState());
   handle('get-saved-controls', () => savedControls.getState());
   handle('save-control', data => savedControls.save(data));
