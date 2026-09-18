@@ -1,12 +1,38 @@
 # PowerView by BenZo
 
-A local desktop companion for Hunter Douglas PowerView Gen 3. Control rooms, visual shade positions and existing gateway scenes from your computer.
+PowerView by BenZo is an unofficial macOS desktop companion for Hunter Douglas PowerView Gen 3 gateways. It provides a faster desktop interface for viewing rooms, controlling shades, running existing gateway scenes, and inspecting schedules and device health.
 
-This update carries the newer local app into GitHub with a redesigned desktop interface: a persistent sidebar, warm light and dark themes, compact shade graphics, Home controls and search. It retains draggable single/dual shade controls, Jog, presets, scenes, room sorting, shortcuts, live events, discovery and the tray menu.
+This project is not made, sponsored, certified, or supported by Hunter Douglas. It communicates with a local gateway using the gateway's HTTP API. Use it as a beta field tool and keep the official PowerView app available for setup, pairing, firmware work, and native scene or schedule management.
 
 ![Home with favorite scenes and pinned shades](docs/screenshots/home-light.png)
 
-## Run
+## Current status
+
+Version `1.1.0-beta.8` is merged into `master`. The application has been tested with simulated devices, a loopback gateway fixture, and read-only requests to one live Gen 3 installation.
+
+The live installation used for verification has 15 shades and no Aura lighting hardware. Aura brightness or color controls are therefore intentionally absent. The app does not assume that an optional API field is supported by every shade.
+
+The app can:
+
+- control individual shades, rooms, whole-home selections, dual rails, curtains, tilt-capable devices, and Jog where the reported device capability supports it;
+- run existing gateway scenes and show active-scene feedback;
+- display live movement, connection, battery, scene, and HomeDoc events;
+- provide saved positions, custom groups, temporary privacy timers, favorites, search, tray access, and global shortcuts;
+- show existing schedules with weekday, clock, sunrise/sunset, enabled/paused, scene, and provisioning information;
+- show device health with documented battery ranges, power source, RSSI, firmware, offline state, and session activity history;
+- run without a real gateway in Demo mode for design review and testing.
+
+The app does not currently create, edit, enable, disable, or delete native gateway scenes or schedules. The documented local API exposes scene activation and schedule reads. Hunter Douglas RemoteConnect can manage those objects through its authenticated cloud service, but this project does not use or reverse-engineer that service. See [API capabilities](docs/API_CAPABILITIES.md) and [home insights](docs/HOME_INSIGHTS.md).
+
+## Safety and hardware disclaimer
+
+PowerView commands can move real window coverings. Confirm the selected home, room, shade, rail, and target before releasing a drag or invoking a shortcut. Keep the official remote or app available, make sure the travel area is clear, and test with one shade before using room or whole-home actions. Stop commands are provided, but no software can guarantee that a motor will stop immediately or that a gateway, network, battery, or motor will respond.
+
+The visual fabric animation can be an estimate between gateway reports when a travel time is available. It is not continuous motor telemetry. A command acknowledgment means the gateway accepted a request; it does not prove that a shade reached the requested position. The app preserves reported state separately and shows errors when the gateway reports them.
+
+No real motor was moved during automated validation. Physical motor behavior, every shade mechanism, battery interpretation, sleep/resume behavior, and operation across Windows or Linux still require field testing. Use Demo mode when reviewing the interface or test logic.
+
+## Install and run
 
 Use Node.js 22.12 or newer:
 
@@ -15,23 +41,33 @@ npm ci
 npm run demo
 ```
 
-Demo mode uses simulated devices and a separate settings profile. To connect your home, run `npm start`, open Settings and enter the primary Gen 3 gateway address or use discovery. Only a verified connection replaces the saved address. Existing `PowerView` config and preferences migrate automatically; the old preferences file is retained.
+Demo mode uses simulated devices and a separate settings profile. To connect to a home, run `npm start`, open Settings, and enter the primary Gen 3 gateway address or use discovery. Only a verified connection replaces the saved address. Existing PowerView configuration and preferences migrate automatically; the old preferences file is retained.
 
-Home puts whole-home actions and favorite scenes above pinned shades, with room shortcuts below. Blinds opens the room grid; Scenes lists your gateway scenes. Search jumps to a room or shade, or runs a matching scene. Single-shade presets use **percent closed**, matching the number field. Dual-rail controls measure each edge's **percentage from the top**. A command acknowledgment is separate from the reported position. Stop acts immediately without a confirmation dialog. Room/whole-home movement retains a confirmation and reports partial failures. The inspected installation exposes no Aura lighting hardware, so lighting controls are intentionally absent.
+The renderer has no Node.js or direct gateway-network access. It communicates through a restricted preload bridge. Gateway addresses and preferences are stored locally by Electron; do not publish your profile directory or expose the gateway's unauthenticated local API to the internet.
 
-Drag the dashed target to choose a position; release to send it. The solid fabric follows reported movement, with a smooth, explicitly approximate animation when the gateway supplies a travel time. The final position comes from the gateway. Demo mode simulates travel and lets you stop partway through. See [movement behavior and limits](docs/MOTION_AND_APPEARANCE.md).
+## Using the app
 
-The pulling handles are small white circles with opposing arrows: up/down for shades and left/right for curtains. For a dual-rail shade, **drag the top or bottom edge directly**. When the edges meet or are close together, one grip lets you pull up to raise the top edge or down to lower the bottom edge. The first pull chooses the edge for that gesture; reversing direction keeps control of the same edge. Expand **Fine adjustment** for independent numeric positions and bottom-edge nudges/presets. **Open shade / Close shade / Stop** control the whole shade.
+Home places whole-home actions and favorite scenes above pinned shades. Blinds opens the room grid, Scenes lists gateway scenes, and search jumps to rooms, shades, or scenes. Single-shade values use **percent closed**. Dual-rail controls measure each edge's **percentage from the top**. Open, Close, and Stop are whole-shade actions.
 
-Use the **palette button** beside a shade's name to choose **shades/blinds or curtains**, fabric texture, and a preset or custom color. Curtains can open from the center as a pair or use a **single curtain that opens and stacks on the left or right**. The preview, horizontal dragging and animation follow your choice, saved for that device and home. Real two-rail shades retain both rail controls and support texture/color customization. In demo, those devices can also simulate curtains; choosing Shades / blinds or Reset restores their rail controls. Appearance changes are local and send no motor commands.
+Drag the dashed target and release to send a position. The solid fabric follows reported movement. Dual-rail shades have compact white arrow grips on their top and bottom edges; when the rails meet, the first pull direction selects the rail for that gesture. Fine adjustment provides independent numeric values and bottom-edge nudges. Curtains can be paired or single-draw and can stack left or right. Appearance settings are local and do not send motor commands.
 
-Command/Ctrl+K opens search; arrow keys and Enter select a result. Ctrl+B and Ctrl+S switch views; Ctrl+1–9 open rooms in the selected order. Escape closes search or overlays, or returns from a room. Shade graphics support pointer interaction and keyboard adjustment. The tray runs favorite scenes through the same gateway connection, and Settings offers an optional close-to-tray preference.
+Command/Ctrl+K opens search. Ctrl+B and Ctrl+S switch views. Ctrl+1–9 open rooms in the selected order. Escape closes search or overlays, or returns from a room. Settings → Keyboard shortcuts supports shade, room, whole-home, scene, refresh, and app-visibility actions. Home → Saved controls stores named positions, groups, and temporary privacy timers. Privacy timers require the app to remain running and the computer to stay awake; sleep, quit, disconnection, or a newer command cancels restoration.
 
-**Settings → Keyboard shortcuts** adds custom, system-wide keys for individual shades, rooms, the whole home, gateway scenes, showing/hiding PowerView and refreshing status. They work while PowerView is running, including in the background. The starter assigns Ctrl+Shift+C/O/H to Close/Open/50% closed for your chosen shade; every combination and percentage is editable. Room and whole-home shortcuts run immediately. Conflicts are checked before saving; recording pauses shortcuts, and each home/demo has separate bindings. See [shortcut setup and behavior](docs/SHORTCUTS.md).
+Schedules is a read-only view of gateway routines. Health contains Device health and Activity. Activity distinguishes an accepted app command from a later gateway report and keeps a bounded history for the current app session; it does not claim to know who initiated an external gateway action.
 
-**Home → Saved controls** lets you save named positions, build custom groups across rooms, and temporarily close selected shades before restoring their previous positions. Presets and groups can also have global shortcuts. Privacy timers start after closure is confirmed and require the app to stay running and the computer awake; a newer command, connection loss, sleep or quit cancels the restore. See [saved controls](docs/SAVED_CONTROLS.md) and the [review of your gateway API's capabilities](docs/API_CAPABILITIES.md).
+## API scope
 
-**Schedules** shows existing gateway routines by weekday, including clock times, sunrise/sunset offsets, paused entries and setup errors. **Health → Device health** collects battery ranges, power, reported signal, firmware and offline status; **Health → Activity** shows app commands, acceptance, gateway reports and failures for this app session. See [schedules, health and activity](docs/HOME_INSIGHTS.md).
+The inspected gateway advertises PowerView Gen 3 Gateway API `2.13.0`, OpenAPI 3.1, with 39 paths and 43 operations. The app uses documented local routes for shades, scenes, automations, events, gateway information, and health reads. HTTP success responses that contain gateway-level or per-shade errors are treated as failures.
+
+The API also documents optional features that are not enabled here, such as Aura lighting and movement velocity. The inspected shades did not expose Aura objects, and movement speed has not been tested on physical motors. Gateway reboot, network configuration, LED changes, firmware-update checks, Matter, Lutron, and integration-management routes are deliberately not exposed as casual controls because they change gateway state or start services.
+
+To export the gateway's OpenAPI document after enabling Swagger:
+
+```sh
+npm run fetch-openapi -- 192.168.1.10
+```
+
+The generated document is ignored by Git because it may contain your gateway address and device data.
 
 ## Verify and build
 
@@ -42,20 +78,10 @@ npm run smoke
 npm run package
 ```
 
-The smoke test opens an isolated Electron runtime, uses a temporary profile and a loopback gateway fixture, and does not move real shades. It writes results and native screenshots under `docs/`. `npm run package` creates a local application bundle under `release/`. The existing electron-builder flow is also available through `npm run build:mac` for a DMG. Public distribution still requires signing/notarization and platform/hardware validation.
+The current validation record reports 69 core tests and 46 native Electron checks passing. Native smoke tests use an isolated profile, demo data, and a loopback HTTP/SSE fixture; they do not move real shades. `npm run package` creates a local application bundle under `release/`. `npm run build:mac` can produce a DMG, but public distribution still requires code signing, notarization, platform testing, and hardware validation.
 
-Advanced gateway tools remain in Settings. To export the gateway's OpenAPI document after enabling Swagger:
+Read the [evaluation and roadmap](docs/EVALUATION.md), [validation record](docs/VALIDATION.md), [motion details](docs/MOTION_AND_APPEARANCE.md), [saved controls](docs/SAVED_CONTROLS.md), [shortcut behavior](docs/SHORTCUTS.md), and [API review](docs/API_CAPABILITIES.md) for known limits and implementation evidence.
 
-```sh
-npm run fetch-openapi -- 192.168.1.10
-```
+## License and support expectations
 
-The generated document is ignored by Git because it may contain your gateway address.
-
-## Evaluation and compatibility
-
-Read the [revised assessment and feature roadmap](docs/EVALUATION.md) and [validation record](docs/VALIDATION.md). The earlier review of GitHub master described an older version; its missing-feature claims do not describe the newer local app.
-
-The UI and API paths have automated coverage for simulated standard and dual-rail shades, failures, live events, navigation and settings. Physical movement, firmware-specific battery fields and the wider set of shade mechanisms still need testing with actual devices. Gen 1/2 gateways are not supported by this release. Gateway schedules can be viewed, but native schedule editing and automatic glare control are not included.
-
-The renderer is sandboxed, has no Node or gateway network access, and communicates through a restricted preload bridge. Icons are bundled locally. Dependencies are locked for repeatable installation.
+This is a personal, unofficial integration. Use it at your own risk. Gateway firmware, API behavior, shade mechanisms, and mobile-cloud features can change without notice. A passing test or a successful HTTP response is not a warranty of compatibility, safety, availability, or motor movement. Keep backups of any local configuration and use the official PowerView app for account, gateway, firmware, pairing, scene, and schedule operations.
