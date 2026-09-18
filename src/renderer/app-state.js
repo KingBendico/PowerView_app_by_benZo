@@ -45,6 +45,28 @@ function openHomeLayoutEditor() {
     dialog.addEventListener('close', () => dialog.remove(), { once: true });
     document.body.appendChild(dialog); dialog.showModal();
 }
+function openFavoritesEditor() {
+    if (document.querySelector('#favoritesDialog')) return;
+    const dialog = document.createElement('dialog'); dialog.id = 'favoritesDialog'; dialog.className = 'home-layout-dialog'; dialog.setAttribute('aria-labelledby', 'favoritesTitle');
+    dialog.innerHTML = '<form method="dialog"><header><div><div class="page-eyebrow">MAKE HOME YOURS</div><h2 id="favoritesTitle">Manage favorites</h2></div><button type="button" class="shortcuts-close" aria-label="Close favorites editor">×</button></header><p>Reorder or remove pinned shades and favorite scenes. Changes are saved separately for each gateway.</p><section><h3>Pinned shades</h3><ol class="favorites-list" data-favorites-kind="shade"></ol></section><section><h3>Favorite scenes</h3><ol class="favorites-list" data-favorites-kind="scene"></ol></section><p class="shortcuts-error" role="alert" hidden></p><footer><span></span><span><button type="button" class="shortcuts-cancel">Cancel</button><button type="submit" class="shortcuts-save">Save favorites</button></span></footer></form>';
+    const draft = { shadeIds: [...(appState?.favorites?.shadeIds || [])], sceneIds: [...(appState?.favorites?.sceneIds || [])] };
+    const names = { shade: new Map(allShades.map(item => [item.id, item.ptName])), scene: new Map(allScenes.map(item => [item.id, item.ptName])) };
+    function render(kind) {
+        const key = `${kind}Ids`, list = dialog.querySelector(`[data-favorites-kind="${kind}"]`); list.replaceChildren();
+        draft[key].forEach((id, index) => {
+            const row = document.createElement('li'); row.className = 'home-layout-row';
+            const label = document.createElement('strong'); label.textContent = names[kind].get(id) || id; row.appendChild(label);
+            const up = document.createElement('button'); up.type = 'button'; up.className = 'home-layout-move'; up.textContent = '↑'; up.disabled = index === 0; up.setAttribute('aria-label', `Move ${label.textContent} up`); up.addEventListener('click', () => { [draft[key][index - 1], draft[key][index]] = [draft[key][index], draft[key][index - 1]]; render(kind); }); row.appendChild(up);
+            const down = document.createElement('button'); down.type = 'button'; down.className = 'home-layout-move'; down.textContent = '↓'; down.disabled = index === draft[key].length - 1; down.setAttribute('aria-label', `Move ${label.textContent} down`); down.addEventListener('click', () => { [draft[key][index], draft[key][index + 1]] = [draft[key][index + 1], draft[key][index]]; render(kind); }); row.appendChild(down);
+            const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'home-layout-move'; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove ${label.textContent} from favorites`); remove.addEventListener('click', () => { draft[key].splice(index, 1); render(kind); }); row.appendChild(remove); list.appendChild(row);
+        });
+        if (!draft[key].length) { const empty = document.createElement('li'); empty.className = 'favorites-empty'; empty.textContent = kind === 'shade' ? 'No pinned shades.' : 'No favorite scenes.'; list.appendChild(empty); }
+    }
+    render('shade'); render('scene');
+    dialog.querySelector('.shortcuts-close').addEventListener('click', () => dialog.close()); dialog.querySelector('.shortcuts-cancel').addEventListener('click', () => dialog.close());
+    dialog.querySelector('form').addEventListener('submit', async event => { event.preventDefault(); const save = dialog.querySelector('.shortcuts-save'); save.disabled = true; try { await api.setFavorites(draft); dialog.close(); showHome(); } catch (error) { const message = dialog.querySelector('.shortcuts-error'); message.textContent = error.message; message.hidden = false; save.disabled = false; } });
+    dialog.addEventListener('close', () => dialog.remove(), { once: true }); document.body.appendChild(dialog); dialog.showModal();
+}
 function isConnected() { return ['connected', 'demo'].includes(appState?.connection.status); }
 function closedPercent(shade) {
     const value = shade.positions.primary;
@@ -239,6 +261,7 @@ function showHome() {
         content.appendChild(empty); return;
     }
     const dashboard = document.createElement('div'); dashboard.className = 'home-dashboard'; content.appendChild(dashboard);
+    const favoritesButton = document.createElement('button'); favoritesButton.type = 'button'; favoritesButton.className = 'text-action home-layout-button'; favoritesButton.textContent = 'Manage favorites'; favoritesButton.addEventListener('click', openFavoritesEditor); title.appendChild(favoritesButton);
     const layoutButton = document.createElement('button'); layoutButton.type = 'button'; layoutButton.className = 'text-action home-layout-button'; layoutButton.textContent = 'Customize layout'; layoutButton.addEventListener('click', openHomeLayoutEditor); title.appendChild(layoutButton);
     const overviewCard = document.createElement('section'); overviewCard.className = 'home-dashboard-card home-dashboard-overview'; overviewCard.dataset.homeCard = 'overview';
     const overview = document.createElement('section'); overview.className = 'home-overview';

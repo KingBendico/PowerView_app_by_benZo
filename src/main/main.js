@@ -64,6 +64,14 @@ function setPrefs(prefs) {
   for (const key of ['theme', 'roomSort', 'closeToTray']) if (key in prefs) config[key] = prefs[key];
   controller.state.config = store.save(config); controller.publish(); return getPrefs();
 }
+function setFavorites(value) {
+  if (!value || typeof value !== 'object') throw new Error('Invalid favorites.');
+  const state = controller.getState(), config = store.get(), address = state.connection.address;
+  if (!address || !state.snapshot) throw new Error('Connect to a gateway before editing favorites.');
+  const valid = (items, collection) => [...new Set(Array.isArray(items) ? items.map(String).filter(id => collection.some(item => item.id === id)) : [])];
+  const favorites = { shadeIds: valid(value.shadeIds, state.snapshot.shades), sceneIds: valid(value.sceneIds, state.snapshot.scenes) };
+  config.favorites[address] = favorites; controller.state.favorites = favorites; controller.state.config = store.save(config); controller.publish(); return getPrefs();
+}
 function showWindow(action) {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createMainWindow();
@@ -210,6 +218,7 @@ function installHandlers() {
   handle('get-config', () => store.get());
   handle('get-prefs', getPrefs);
   handle('set-prefs', setPrefs);
+  handle('set-favorites', setFavorites);
   handle('get-shortcuts', () => shortcuts.getState());
   handle('get-saved-controls', () => savedControls.getState());
   handle('save-control', data => savedControls.save(data));
