@@ -13,11 +13,10 @@ function createLiveShadeControl(shade, statusEl) {
     const inner = document.createElement('div'); inner.className = 'shade-window-inner shade-window-inner--realistic motion-window';
     inner.dataset.covering = curtains ? 'curtain' : 'shade'; inner.dataset.fabric = appearance.fabric; inner.dataset.draw = curtainDraw;
     if (appearance.color) inner.style.setProperty('--fabric-color', appearance.color);
-    inner.innerHTML = '<div class="shade-window-glass shade-window-glass--realistic"></div><div class="shade-fabric motion-fabric"></div><div class="curtain-panel curtain-left"></div><div class="curtain-panel curtain-right"></div><div class="motion-target target-primary" hidden></div><div class="motion-target target-secondary" hidden></div>';
+    inner.innerHTML = '<div class="shade-window-glass shade-window-glass--realistic"></div><div class="shade-fabric motion-fabric"></div><div class="curtain-panel curtain-left"></div><div class="curtain-panel curtain-right"></div>';
     visual.appendChild(inner); root.appendChild(visual);
     const fabric = inner.querySelector('.motion-fabric');
     const leftCurtain = inner.querySelector('.curtain-left'), rightCurtain = inner.querySelector('.curtain-right');
-    const primaryMarker = inner.querySelector('.target-primary'), secondaryMarker = inner.querySelector('.target-secondary');
     const inputs = {}, suffixes = {}, grips = {}, edges = {};
     const edgeName = axis => axis === 'primary' ? 'Bottom edge' : 'Top edge';
     let quickActions = null;
@@ -148,18 +147,6 @@ function createLiveShadeControl(shade, statusEl) {
         const target = localTarget || appState?.targets?.[shade.id]?.positions || motion()?.target;
         const showTarget = !!draft || !!target && Object.keys(target).length > 0;
         const hasTarget = axis => draft ? draftAxis === axis : Number.isFinite(target?.[axis]);
-        primaryMarker.hidden = !showTarget || dual && !hasTarget('primary');
-        secondaryMarker.hidden = !showTarget || (dual ? !hasTarget('secondary') : !curtains || curtainDraw !== 'split');
-        if (showTarget) {
-            if (curtains) {
-                const panels = curtainGeometry.panels(chosen.primary, curtainDraw);
-                primaryMarker.style.left = `${curtainDraw === 'right' ? 100 - panels.right : panels.left}%`;
-                secondaryMarker.style.right = `${panels.right}%`;
-            } else {
-                primaryMarker.style.top = `${chosen.primary}%`;
-                secondaryMarker.style.top = `${chosen.secondary}%`;
-            }
-        }
         for (const [axis, input] of Object.entries(inputs)) {
             const display = hasTarget(axis) ? chosen[axis] : values[axis];
             if (document.activeElement !== input) input.value = Number.isFinite(display) ? String(dual ? Number(display.toFixed(2)) : Math.round(display)) : '';
