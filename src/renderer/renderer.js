@@ -602,28 +602,38 @@ function createBulkShadeToolbar(ids, scopeDescription) {
     if (!ids.length) return null;
     const wrap = document.createElement('div'); wrap.className = 'shade-bulk-toolbar';
     const roomId = currentMainView === 'room-shades' ? displayedRoomId : null;
+    const result = document.createElement('div'); result.className = 'group-command-result';
+    result.setAttribute('role','status');
+    const run = async (action, button) => {
+        if (action !== 'stop' && !confirm(`${action === 'open' ? 'Open all' : 'Close all'} — ${scopeDescription}? ${ids.length} shades may move.`)) return;
+        button.disabled = true;
+        result.replaceChildren(); result.textContent = 'Sending commands…';
+        try {
+            const results = await api.roomAction({ roomId, action });
+            const failed = results.filter(item => !item.ok);
+            const message = `${results.length - failed.length} of ${results.length} commands accepted.`;
+            result.textContent = failed.length ? `${message} ${failed.map(item => `${item.name}: ${item.error}`).join(' ')}` : message;
+            showSceneRunToast(message);
+            if (failed.length) {
+                const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'text-action group-command-retry'; retry.textContent = 'Retry';
+                retry.addEventListener('click', () => run(action, button)); result.appendChild(retry);
+            }
+        } catch (error) {
+            result.textContent = error.message;
+            const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'text-action group-command-retry'; retry.textContent = 'Retry';
+            retry.addEventListener('click', () => run(action, button)); result.appendChild(retry);
+            showSceneRunToast(error.message);
+        } finally { button.disabled = !isConnected(); }
+    };
     for (const [action, label, icon] of [['open','Open all','arrow-up'], ['close','Close all','arrow-down'], ['stop','Stop all','stop']]) {
         const button = document.createElement('button'); button.type = 'button'; button.className = 'btn-bulk-shade';
         button.innerHTML = `<i class="fas fa-${icon}" aria-hidden="true"></i> ${label}`;
         button.setAttribute('aria-label', `${label}. ${scopeDescription}. ${ids.length} shades.`);
         button.dataset.gatewayCommand = action;
-        button.addEventListener('click', async () => {
-            if (action !== 'stop' && !confirm(`${label} — ${scopeDescription}? ${ids.length} shades may move.`)) return;
-            button.disabled = true;
-            try {
-                const results = await api.roomAction({ roomId, action });
-                const failed = results.filter(result => !result.ok);
-                const message = `${results.length - failed.length} of ${results.length} commands accepted.`;
-                showSceneRunToast(message);
-                const status = document.getElementById('group-command-result');
-                if (status) status.textContent = failed.length ? `${message} ${failed.map(item => `${item.name}: ${item.error}`).join(' ')}` : message;
-            } catch (error) { showSceneRunToast(error.message); }
-            finally { button.disabled = !isConnected(); }
-        });
+        button.addEventListener('click', () => run(action, button));
         wrap.appendChild(button);
     }
-    const result = document.createElement('div'); result.id = 'group-command-result'; result.className = 'group-command-result';
-    result.setAttribute('role','status'); wrap.appendChild(result); return wrap;
+    wrap.appendChild(result); return wrap;
 }
 
 function createShadeFineControlRow(shade, statusEl, control) {
