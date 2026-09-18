@@ -75,6 +75,8 @@ body.has-status-banner { padding-top: 0; }
 .home-layout-row.is-dragging { opacity: .45; }
 .home-layout-grip { color: var(--text-muted); font-size: 16px; }
 .home-layout-row strong { flex: 1; font-size: 13px; }
+.home-layout-visibility { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.home-layout-visibility input { accent-color: var(--accent); }
 .home-layout-move { width: 29px; height: 29px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; }
 .home-layout-move:disabled { opacity: .35; cursor: default; }
 .home-overview { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 22px; background: var(--soft-accent); border: 1px solid color-mix(in srgb,var(--accent) 12%,transparent); border-radius: 16px; overflow: hidden; min-height: 165px; }

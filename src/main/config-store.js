@@ -3,7 +3,7 @@ const path = require('node:path');
 const { normalizeAddress } = require('./gateway-client');
 const { cleanSettings: cleanShortcutSettings } = require('../shared/shortcut-format');
 const { cleanHome: cleanSavedControls } = require('../shared/saved-controls-format');
-const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, shortcuts: {}, savedControls: {}, homeLayout: {}, roomSort: 'default', prefsMigrated: false });
+const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, shortcuts: {}, savedControls: {}, homeLayout: {}, homeHidden: {}, roomSort: 'default', prefsMigrated: false });
 function cleanAppearance(value) {
   if (!value || !['shade', 'curtain'].includes(value.kind) || !['pleated', 'roller', 'slatted'].includes(value.fabric)
     || value.color !== null && !/^#[a-f0-9]{6}$/i.test(value.color)
@@ -61,6 +61,14 @@ function cleanConfig(raw) {
       if (['__proto__', 'constructor', 'prototype'].includes(host) || !Array.isArray(order)) continue;
       const clean = [...new Set(order.filter(item => typeof item === 'string' && allowed.has(item)))];
       if (clean.length) config.homeLayout[host] = clean;
+    }
+  }
+  if (raw.homeHidden && typeof raw.homeHidden === 'object' && !Array.isArray(raw.homeHidden)) {
+    const allowed = new Set(['overview', 'scenes', 'saved', 'pinned', 'rooms']);
+    for (const [host, hidden] of Object.entries(raw.homeHidden).slice(0, 100)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(host) || !Array.isArray(hidden)) continue;
+      const clean = [...new Set(hidden.filter(item => typeof item === 'string' && allowed.has(item)))];
+      config.homeHidden[host] = clean;
     }
   }
   return config;

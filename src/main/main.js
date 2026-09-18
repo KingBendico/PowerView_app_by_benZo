@@ -41,7 +41,7 @@ function getPrefs() {
   return { theme: config.theme, closeToTray: config.closeToTray, roomSort: config.roomSort,
     favoriteScenes: state.favorites.sceneIds.map(id => ({ id, name: nameFor('scenes', id) })),
     favoriteShades: state.favorites.shadeIds, recentScenes: recent.scenes, recentRooms: recent.rooms,
-    homeLayout: config.homeLayout[state.connection.address] || [] };
+    homeLayout: config.homeLayout[state.connection.address] || [], homeHidden: config.homeHidden[state.connection.address] || [] };
 }
 function setPrefs(prefs) {
   if (!prefs || typeof prefs !== 'object') throw new Error('Invalid preferences.');
@@ -55,6 +55,10 @@ function setPrefs(prefs) {
       const allowed = new Set(['overview', 'scenes', 'saved', 'pinned', 'rooms']);
       const order = [...new Set(prefs.homeLayout.filter(item => typeof item === 'string' && allowed.has(item)))];
       if (order.length === 5) config.homeLayout[address] = order;
+    }
+    if (Array.isArray(prefs.homeHidden)) {
+      const allowed = new Set(['overview', 'scenes', 'saved', 'pinned', 'rooms']);
+      config.homeHidden[address] = [...new Set(prefs.homeHidden.filter(item => typeof item === 'string' && allowed.has(item)))];
     }
   }
   for (const key of ['theme', 'roomSort', 'closeToTray']) if (key in prefs) config[key] = prefs[key];

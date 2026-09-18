@@ -10,20 +10,24 @@ function homeLayout() {
 }
 function applyHomeLayout(root) {
     const cards = new Map([...root.querySelectorAll('[data-home-card]')].map(card => [card.dataset.homeCard, card]));
-    for (const id of homeLayout()) if (cards.has(id)) root.appendChild(cards.get(id));
+    const hidden = new Set(Array.isArray(prefs.homeHidden) ? prefs.homeHidden : []);
+    for (const id of homeLayout()) if (cards.has(id)) { const card = cards.get(id); card.hidden = hidden.has(id); root.appendChild(card); }
 }
 function openHomeLayoutEditor() {
     if (document.querySelector('#homeLayoutDialog')) return;
     const dialog = document.createElement('dialog'); dialog.id = 'homeLayoutDialog'; dialog.className = 'home-layout-dialog';
     dialog.setAttribute('aria-labelledby', 'homeLayoutTitle');
-    dialog.innerHTML = '<form method="dialog"><header><div><div class="page-eyebrow">MAKE HOME YOURS</div><h2 id="homeLayoutTitle">Customize Home layout</h2></div><button type="button" class="shortcuts-close" aria-label="Close layout editor">×</button></header><p>Drag a row or use its arrows to choose the order. Click <b>Save layout</b> to apply it. Changes are saved separately for each gateway.</p><ol class="home-layout-list"></ol><footer><button type="button" class="text-action" data-layout-reset>Reset order</button><span><button type="button" class="shortcuts-cancel">Cancel</button><button type="submit" class="shortcuts-save">Save layout</button></span></footer></form>';
-    const list = dialog.querySelector('.home-layout-list'); let order = homeLayout();
+    dialog.innerHTML = '<form method="dialog"><header><div><div class="page-eyebrow">MAKE HOME YOURS</div><h2 id="homeLayoutTitle">Customize Home layout</h2></div><button type="button" class="shortcuts-close" aria-label="Close layout editor">×</button></header><p>Drag a row or use its arrows to choose the order. Clear <b>Show</b> to hide a card. Click <b>Save layout</b> to apply it. Changes are saved separately for each gateway.</p><ol class="home-layout-list"></ol><footer><button type="button" class="text-action" data-layout-reset>Reset order</button><span><button type="button" class="shortcuts-cancel">Cancel</button><button type="submit" class="shortcuts-save">Save layout</button></span></footer></form>';
+    const list = dialog.querySelector('.home-layout-list'); let order = homeLayout(); let hidden = new Set(Array.isArray(prefs.homeHidden) ? prefs.homeHidden : []);
     function render() {
         list.replaceChildren();
         order.forEach((id, index) => {
             const row = document.createElement('li'); row.className = 'home-layout-row'; row.draggable = true; row.dataset.layoutId = id;
             const grip = document.createElement('span'); grip.className = 'home-layout-grip'; grip.textContent = '↕'; grip.setAttribute('aria-hidden', 'true'); row.appendChild(grip);
             const label = document.createElement('strong'); label.textContent = HOME_CARD_LABELS[id]; row.appendChild(label);
+            const visibility = document.createElement('label'); visibility.className = 'home-layout-visibility';
+            const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = !hidden.has(id); checkbox.setAttribute('aria-label', `Show ${HOME_CARD_LABELS[id]}`); checkbox.addEventListener('change', () => { if (checkbox.checked) hidden.delete(id); else hidden.add(id); });
+            visibility.appendChild(checkbox); visibility.appendChild(document.createTextNode(' Show')); row.appendChild(visibility);
             const up = document.createElement('button'); up.type = 'button'; up.className = 'home-layout-move'; up.textContent = '↑'; up.setAttribute('aria-label', `Move ${HOME_CARD_LABELS[id]} up`); up.disabled = index === 0; up.addEventListener('click', () => { [order[index - 1], order[index]] = [order[index], order[index - 1]]; render(); }); row.appendChild(up);
             const down = document.createElement('button'); down.type = 'button'; down.className = 'home-layout-move'; down.textContent = '↓'; down.setAttribute('aria-label', `Move ${HOME_CARD_LABELS[id]} down`); down.disabled = index === order.length - 1; down.addEventListener('click', () => { [order[index], order[index + 1]] = [order[index + 1], order[index]]; render(); }); row.appendChild(down);
             row.addEventListener('dragstart', event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', id); row.classList.add('is-dragging'); });
@@ -34,10 +38,10 @@ function openHomeLayoutEditor() {
         });
     }
     render();
-    dialog.querySelector('[data-layout-reset]').addEventListener('click', () => { order = [...HOME_LAYOUT_DEFAULT]; render(); });
+    dialog.querySelector('[data-layout-reset]').addEventListener('click', () => { order = [...HOME_LAYOUT_DEFAULT]; hidden = new Set(); render(); });
     dialog.querySelector('.shortcuts-close').addEventListener('click', () => dialog.close());
     dialog.querySelector('.shortcuts-cancel').addEventListener('click', () => dialog.close());
-    dialog.querySelector('form').addEventListener('submit', async event => { event.preventDefault(); prefs.homeLayout = [...order]; await persistPrefs(); dialog.close(); showHome(); });
+    dialog.querySelector('form').addEventListener('submit', async event => { event.preventDefault(); prefs.homeLayout = [...order]; prefs.homeHidden = [...hidden]; await persistPrefs(); dialog.close(); showHome(); });
     dialog.addEventListener('close', () => dialog.remove(), { once: true });
     document.body.appendChild(dialog); dialog.showModal();
 }
@@ -75,6 +79,7 @@ function applyState(state) {
     const recent = state.config.recent[state.connection.address] || { scenes: [], rooms: [] };
     prefs = { ...prefs, theme: state.config.theme, closeToTray: state.config.closeToTray, roomSort: state.config.roomSort,
         homeLayout: state.config.homeLayout?.[state.connection.address] || [],
+        homeHidden: state.config.homeHidden?.[state.connection.address] || [],
         favoriteShades: state.favorites.shadeIds,
         favoriteScenes: state.favorites.sceneIds.map(id => ({ id, name: state.snapshot?.scenes.find(scene => scene.id === id)?.name || id })),
         recentScenes: recent.scenes, recentRooms: recent.rooms };

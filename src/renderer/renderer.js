@@ -111,7 +111,7 @@ let sseConnectionState = 'idle';
 
 let connectionHealthIntervalId = null;
 
-let prefs = { favoriteScenes: [], recentScenes: [], recentRooms: [], theme: 'light', homeLayout: [] };
+let prefs = { favoriteScenes: [], recentScenes: [], recentRooms: [], theme: 'light', homeLayout: [], homeHidden: [] };
 let currentMainView = 'home';
 
 let contentResizeObserver = null;
