@@ -16,7 +16,7 @@ function openHomeLayoutEditor() {
     if (document.querySelector('#homeLayoutDialog')) return;
     const dialog = document.createElement('dialog'); dialog.id = 'homeLayoutDialog'; dialog.className = 'home-layout-dialog';
     dialog.setAttribute('aria-labelledby', 'homeLayoutTitle');
-    dialog.innerHTML = '<form method="dialog"><header><div><div class="page-eyebrow">MAKE HOME YOURS</div><h2 id="homeLayoutTitle">Customize Home layout</h2></div><button type="button" class="shortcuts-close" aria-label="Close layout editor">×</button></header><p>Choose the order of the Home cards. Changes are saved separately for each gateway.</p><ol class="home-layout-list"></ol><footer><button type="button" class="text-action" data-layout-reset>Reset order</button><span><button type="button" class="shortcuts-cancel">Cancel</button><button type="submit" class="shortcuts-save">Save layout</button></span></footer></form>';
+    dialog.innerHTML = '<form method="dialog"><header><div><div class="page-eyebrow">MAKE HOME YOURS</div><h2 id="homeLayoutTitle">Customize Home layout</h2></div><button type="button" class="shortcuts-close" aria-label="Close layout editor">×</button></header><p>Drag a row or use its arrows to choose the order. Click <b>Save layout</b> to apply it. Changes are saved separately for each gateway.</p><ol class="home-layout-list"></ol><footer><button type="button" class="text-action" data-layout-reset>Reset order</button><span><button type="button" class="shortcuts-cancel">Cancel</button><button type="submit" class="shortcuts-save">Save layout</button></span></footer></form>';
     const list = dialog.querySelector('.home-layout-list'); let order = homeLayout();
     function render() {
         list.replaceChildren();
