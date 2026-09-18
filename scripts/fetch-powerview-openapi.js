@@ -4,8 +4,8 @@
  * embedded inside swagger-ui-init.js (not a separate /swagger.json).
  *
  * Run on a machine that can reach the gateway (your Mac on the same LAN):
- *   node scripts/fetch-powerview-openapi.js 192.168.1.169
- *   npm run fetch-openapi -- 192.168.1.169
+ *   node scripts/fetch-powerview-openapi.js 192.168.1.10
+ *   npm run fetch-openapi -- 192.168.1.10
  *
  * Writes docs/powerview-gateway-openapi.json for offline use / AI tools / diffing.
  *
@@ -19,7 +19,7 @@ const path = require('path');
 const gatewayIp = (process.argv[2] || process.env.POWERVIEW_GATEWAY_IP || '').trim();
 if (!gatewayIp) {
     console.error('Usage: node scripts/fetch-powerview-openapi.js <gateway-ipv4>');
-    console.error('   or: POWERVIEW_GATEWAY_IP=192.168.1.169 npm run fetch-openapi');
+    console.error('   or: POWERVIEW_GATEWAY_IP=192.168.1.10 npm run fetch-openapi');
     process.exit(1);
 }
 
