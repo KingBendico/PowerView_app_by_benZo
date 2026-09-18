@@ -1948,6 +1948,46 @@ p {
     .shade-window-inner.shade-window-dragging .motion-target { animation: none; }
 }
 
+/* Floating rail handles, inspired by the mobile control but sized for a
+   pointer or trackpad. The arrows communicate which edge will move. */
+.motion-grip {
+    position: absolute;
+    z-index: 8;
+    left: 50%;
+    width: 42px;
+    height: 42px;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(148, 163, 184, .55);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 2px 5px rgba(15, 23, 42, .22), 0 0 0 3px rgba(255,255,255,.28);
+    pointer-events: none;
+    touch-action: none;
+}
+.motion-grip::before {
+    content: '▲\A▼';
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    white-space: pre;
+    text-align: center;
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 10px;
+}
+.motion-grip-curtain {
+    top: 50%;
+}
+.shade-window-inner.shade-window-dragging .motion-grip {
+    border-color: var(--accent);
+    box-shadow: 0 3px 8px rgba(15, 23, 42, .28), 0 0 0 3px rgba(14, 165, 233, .22);
+}
+:root[data-theme='dark'] .motion-grip {
+    background: rgba(248, 250, 252, .96);
+}
+
 .shade-fabric-single {
     top: auto;
     bottom: 0;
