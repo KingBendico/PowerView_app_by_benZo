@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('powerView', {
   onInsights: callback => subscribe('insights-state', callback),
   getPrefs: () => invoke('get-prefs'), setPrefs: value => invoke('set-prefs', value),
   setFavorites: value => invoke('set-favorites', value),
+  exportSettings: () => invoke('export-settings'), importSettings: () => invoke('import-settings'),
   connect: address => invoke('connect', address), refresh: () => invoke('refresh'),
   demo: enabled => invoke('demo', enabled), validateGateway: address => invoke('validate-gateway', address),
   discover: () => invoke('discover-gateway'), interfaces: () => invoke('interfaces'),

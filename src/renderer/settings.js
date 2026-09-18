@@ -41,6 +41,12 @@
         const identity = await api.validateGateway(input.value); message(`${identity.name} is reachable and provides home data.`);
     }));
     document.getElementById('openSwaggerButton').addEventListener('click', event => task(event.currentTarget, 'Starting gateway API tools…', async () => message(await api.openSwagger(input.value))));
+    document.getElementById('exportSettingsButton').addEventListener('click', event => task(event.currentTarget, 'Exporting settings…', async () => {
+        const result = await api.exportSettings(); if (!result.canceled) message('Settings exported successfully.');
+    }));
+    document.getElementById('importSettingsButton').addEventListener('click', event => task(event.currentTarget, 'Importing settings…', async () => {
+        const result = await api.importSettings(); if (!result.canceled) message('Settings imported. Reconnect if the imported gateway is different.');
+    }));
     async function discover(button, scan) {
         const current = generation;
         document.getElementById('stopScanButton').hidden = false;

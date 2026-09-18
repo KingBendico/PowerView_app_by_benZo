@@ -1,9 +1,9 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, session, globalShortcut, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, screen, session, globalShortcut, powerMonitor, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const { isIP } = require('node:net');
-const { ConfigStore } = require('./config-store');
+const { ConfigStore, cleanConfig } = require('./config-store');
 const { Controller } = require('./controller');
 const { Shortcuts } = require('./shortcuts');
 const { SavedControls } = require('./saved-controls');
@@ -71,6 +71,22 @@ function setFavorites(value) {
   const valid = (items, collection) => [...new Set(Array.isArray(items) ? items.map(String).filter(id => collection.some(item => item.id === id)) : [])];
   const favorites = { shadeIds: valid(value.shadeIds, state.snapshot.shades), sceneIds: valid(value.sceneIds, state.snapshot.scenes) };
   config.favorites[address] = favorites; controller.state.favorites = favorites; controller.state.config = store.save(config); controller.publish(); return getPrefs();
+}
+async function exportSettings() {
+  const result = await dialog.showSaveDialog(mainWindow, { title: 'Export PowerView settings', defaultPath: 'PowerView-settings.json', filters: [{ name: 'PowerView settings', extensions: ['json'] }] });
+  if (result.canceled || !result.filePath) return { canceled: true };
+  fs.writeFileSync(result.filePath, JSON.stringify({ format: 'PowerView settings', version: 1, exportedAt: new Date().toISOString(), config: store.get() }, null, 2), { mode: 0o600 });
+  return { canceled: false, filePath: result.filePath };
+}
+async function importSettings() {
+  const result = await dialog.showOpenDialog(mainWindow, { title: 'Import PowerView settings', properties: ['openFile'], filters: [{ name: 'PowerView settings', extensions: ['json'] }] });
+  if (result.canceled || !result.filePaths[0]) return { canceled: true };
+  let parsed;
+  try { parsed = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8')); } catch { throw new Error('That file is not valid JSON.'); }
+  const saved = store.save(cleanConfig(parsed?.config || parsed)); controller.state.config = saved;
+  const address = controller.state.connection.address;
+  controller.state.favorites = address ? saved.favorites[address] || { shadeIds: [], sceneIds: [] } : { shadeIds: [], sceneIds: [] };
+  controller.publish(); return { canceled: false, filePath: result.filePaths[0] };
 }
 function showWindow(action) {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -219,6 +235,8 @@ function installHandlers() {
   handle('get-prefs', getPrefs);
   handle('set-prefs', setPrefs);
   handle('set-favorites', setFavorites);
+  handle('export-settings', exportSettings);
+  handle('import-settings', importSettings);
   handle('get-shortcuts', () => shortcuts.getState());
   handle('get-saved-controls', () => savedControls.getState());
   handle('save-control', data => savedControls.save(data));
