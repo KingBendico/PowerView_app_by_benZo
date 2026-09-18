@@ -20,6 +20,8 @@ if (dataArg) app.setPath('userData', path.resolve(dataArg.slice(11)));
 else if (process.argv.includes('--demo')) app.setPath('userData', path.join(app.getPath('userData'), 'demo-profile'));
 let mainWindow, tray, controller, store, shortcuts, savedControls, insights, refreshTimer, quitting = false;
 const routineRuns = new Map();
+let triggerTimer;
+const triggerLastRun = new Set();
 const discovery = new Discovery();
 const scanner = new NetworkScan();
 function send(channel, payload) {
@@ -133,6 +135,18 @@ async function runRoutine(id) {
     }
     send('command-notice', `${routine.name}: routine completed.`); return { ok: true };
   } finally { routineRuns.delete(id); }
+}
+function getTriggers() { const address = controller.state.connection.address, routines = routineHome(address); return (store.get().triggers?.[address] || []).map(item => ({ ...item, routineName: routines.find(routine => routine.id === item.routineId)?.name || 'Routine unavailable' })); }
+function saveTrigger(value) {
+  const address = controller.state.connection.address, routines = routineHome(address); if (!address || !value || !routines.some(routine => routine.id === value.routineId)) throw new Error('Choose an available routine.');
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time) || !Array.isArray(value.days) || !value.days.length) throw new Error('Choose a valid time and at least one day.');
+  const config = store.get(); config.triggers ||= {}; const list = config.triggers[address] || []; const id = typeof value.id === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(value.id) ? value.id : randomUUID(); const entry = { id, routineId: value.routineId, time: value.time, days: [...new Set(value.days.map(Number))], enabled: value.enabled !== false }; const index = list.findIndex(item => item.id === id); if (index >= 0) list[index] = entry; else list.push(entry); config.triggers[address] = list.slice(0, 50); controller.state.config = store.save(config); controller.publish(); return getTriggers();
+}
+function removeTrigger(id) { const address = controller.state.connection.address, config = store.get(); config.triggers ||= {}; config.triggers[address] = (config.triggers[address] || []).filter(item => item.id !== id); controller.state.config = store.save(config); controller.publish(); return getTriggers(); }
+async function runScheduledTriggers() {
+  if (!controller?.state?.connection?.address || !['connected', 'demo'].includes(controller.state.connection.status)) return;
+  const now = new Date(), minute = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, keyDate = `${now.toISOString().slice(0, 10)}-${minute}`, address = controller.state.connection.address;
+  for (const trigger of store.get().triggers?.[address] || []) if (trigger.enabled && trigger.time === minute && trigger.days.includes(now.getDay())) { const key = `${address}-${trigger.id}-${keyDate}`; if (triggerLastRun.has(key)) continue; triggerLastRun.add(key); runRoutine(trigger.routineId).catch(error => send('command-notice', `Scheduled routine failed: ${error.message}`)); }
 }
 function showWindow(action) {
   if (!mainWindow || mainWindow.isDestroyed()) {
@@ -287,6 +301,9 @@ function installHandlers() {
   handle('save-routine', saveRoutine);
   handle('remove-routine', id => removeRoutine(String(id)));
   handle('run-routine', id => runRoutine(String(id)));
+  handle('get-triggers', getTriggers);
+  handle('save-trigger', saveTrigger);
+  handle('remove-trigger', id => removeTrigger(String(id)));
   handle('get-shortcuts', () => shortcuts.getState());
   handle('get-saved-controls', () => savedControls.getState());
   handle('save-control', data => savedControls.save(data));
@@ -357,8 +374,9 @@ app.whenReady().then(async () => {
   refreshTimer = setInterval(() => {
     if (controller.client) { controller.refresh().catch(() => {}); void insights.refresh(); }
   }, 60000);
+  triggerTimer = setInterval(() => { void runScheduledTriggers(); }, 30000);
   app.on('activate', () => showWindow());
 });
-app.on('before-quit', () => { quitting = true; clearInterval(refreshTimer); discovery.stop(); scanner.stop(); shortcuts?.dispose(); savedControls?.dispose(); insights?.dispose(); controller?.dispose(); });
+app.on('before-quit', () => { quitting = true; clearInterval(refreshTimer); clearInterval(triggerTimer); discovery.stop(); scanner.stop(); shortcuts?.dispose(); savedControls?.dispose(); insights?.dispose(); controller?.dispose(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin' && !controller?.state.config.closeToTray) app.quit(); });
 module.exports = { getWindow: () => mainWindow, getController: () => controller, getShortcuts: () => shortcuts, getSavedControls: () => savedControls, getInsights: () => insights };

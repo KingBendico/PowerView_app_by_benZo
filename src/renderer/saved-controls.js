@@ -1,5 +1,5 @@
 (function setupSavedControls() {
-    let model = null, opening = false, routines = [];
+    let model = null, opening = false, routines = [], triggers = [];
     const active = timer => ['closing', 'waiting', 'restoring'].includes(timer.status);
     const button = (label, action, className = '') => { const el = document.createElement('button'); el.type = 'button'; el.textContent = label; el.className = className; el.addEventListener('click', action); return el; };
     const text = (tag, value, className = '') => { const el = document.createElement(tag); el.textContent = value; el.className = className; return el; };
@@ -61,6 +61,18 @@
         controls.appendChild(button('Remove', () => task(async () => { await api.removeRoutine(routine.id); await refreshRoutines(); }), 'saved-remove')); card.appendChild(controls); return card;
     }
     async function refreshRoutines() { try { routines = await api.getRoutines(); renderHome(); } catch (error) { showSceneRunToast(error.message); } }
+    async function refreshTriggers() { try { triggers = await api.getTriggers(); renderHome(); } catch (error) { showSceneRunToast(error.message); } }
+    async function openTriggerEditor() {
+        if (opening || document.querySelector('dialog') || !routines.length) { if (!routines.length) showSceneRunToast('Create a routine before scheduling it.'); return; }
+        opening = true;
+        try {
+            const dialog = document.createElement('dialog'); dialog.className = 'shortcuts-dialog saved-dialog'; dialog.innerHTML = '<form><header class="shortcuts-header"><div><div class="page-eyebrow">LOCAL AUTOMATION</div><h2>Schedule a routine</h2></div><button type="button" class="shortcuts-close" aria-label="Close schedule editor">×</button></header><div class="shortcuts-scroll"><label>Routine<select id="triggerRoutine"></select></label><label>Time<input id="triggerTime" type="time" required></label><fieldset><legend>Days</legend><div id="triggerDays"></div></fieldset><p class="shortcuts-error" role="alert" hidden></p></div><footer><button type="button" class="shortcuts-cancel">Cancel</button><button type="submit" class="shortcuts-save">Save schedule</button></footer></form>';
+            const routineSelect = dialog.querySelector('#triggerRoutine'), daysRoot = dialog.querySelector('#triggerDays'), names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            routines.forEach(routine => routineSelect.appendChild(new Option(routine.name, routine.id))); names.forEach((name, day) => { const label = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.value = String(day); input.checked = true; label.append(input, document.createTextNode(` ${name}`)); daysRoot.appendChild(label); });
+            dialog.querySelector('form').addEventListener('submit', async event => { event.preventDefault(); const selected = [...daysRoot.querySelectorAll('input:checked')].map(input => Number(input.value)), error = dialog.querySelector('.shortcuts-error'); if (!selected.length) { error.textContent = 'Choose at least one day.'; error.hidden = false; return; } try { await api.saveTrigger({ routineId: routineSelect.value, time: dialog.querySelector('#triggerTime').value, days: selected }); dialog.close(); await refreshTriggers(); } catch (failure) { error.textContent = failure.message; error.hidden = false; } });
+            for (const el of dialog.querySelectorAll('.shortcuts-close,.shortcuts-cancel')) el.addEventListener('click', () => dialog.close()); dialog.addEventListener('close', () => dialog.remove(), { once: true }); document.body.appendChild(dialog); dialog.showModal();
+        } catch (error) { showSceneRunToast(error.message); } finally { opening = false; }
+    }
     async function openRoutineEditor() {
         if (opening || document.querySelector('dialog')) return;
         opening = true;
@@ -93,8 +105,9 @@
         quick.appendChild(button('◷  Temporary privacy', () => open('privacy')));
         quick.appendChild(button('+ Save a position', () => open('presets')));
         quick.appendChild(button('+ Create a group', () => open('groups'))); root.appendChild(quick);
-        const routineHeader = document.createElement('div'); routineHeader.className = 'home-section-heading'; routineHeader.appendChild(text('h3', 'Local routines')); routineHeader.appendChild(button('+ Create routine', openRoutineEditor, 'text-action')); root.appendChild(routineHeader);
+        const routineHeader = document.createElement('div'); routineHeader.className = 'home-section-heading'; routineHeader.appendChild(text('h3', 'Local routines')); routineHeader.appendChild(button('+ Create routine', openRoutineEditor, 'text-action')); routineHeader.appendChild(button('Schedule', openTriggerEditor, 'text-action')); root.appendChild(routineHeader);
         const routineGrid = document.createElement('div'); routineGrid.className = 'saved-controls-grid'; for (const routine of routines.slice(0, 3)) routineGrid.appendChild(routineCard(routine)); root.appendChild(routineGrid);
+        const triggerGrid = document.createElement('div'); triggerGrid.className = 'privacy-list'; for (const trigger of triggers) { const card = document.createElement('article'); card.className = 'privacy-card'; card.appendChild(text('strong', `${trigger.time} · ${trigger.routineName}`)); card.appendChild(text('p', trigger.days.map(day => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day]).join(', '))); card.appendChild(button('Remove', () => task(async () => { await api.removeTrigger(trigger.id); await refreshTriggers(); }), 'saved-remove')); triggerGrid.appendChild(card); } if (triggers.length) root.appendChild(triggerGrid);
         const cards = document.createElement('div'); cards.className = 'saved-controls-grid';
         for (const kind of ['presets', 'groups']) for (const entry of model[kind].slice(0, 3)) cards.appendChild(savedCard(entry, kind));
         root.appendChild(cards);
@@ -179,6 +192,6 @@
     window.savedControls = { open, mountHome(parent) { const root = document.createElement('section'); root.id = 'savedControlsHome'; parent.appendChild(root); renderHome(); } };
     api.onSavedControls(state => { model = state; renderHome(); });
     api.getSavedControls().then(state => { model = state; renderHome(); }).catch(error => showSceneRunToast(error.message));
-    void refreshRoutines();
+    void refreshRoutines(); void refreshTriggers();
     setInterval(countdown, 1000);
 })();

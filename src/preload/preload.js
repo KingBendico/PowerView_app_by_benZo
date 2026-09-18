@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('powerView', {
   setFavorites: value => invoke('set-favorites', value),
   exportSettings: () => invoke('export-settings'), importSettings: () => invoke('import-settings'),
   getRoutines: () => invoke('get-routines'), saveRoutine: value => invoke('save-routine', value), removeRoutine: id => invoke('remove-routine', id), runRoutine: id => invoke('run-routine', id),
+  getTriggers: () => invoke('get-triggers'), saveTrigger: value => invoke('save-trigger', value), removeTrigger: id => invoke('remove-trigger', id),
   connect: address => invoke('connect', address), refresh: () => invoke('refresh'),
   demo: enabled => invoke('demo', enabled), validateGateway: address => invoke('validate-gateway', address),
   discover: () => invoke('discover-gateway'), interfaces: () => invoke('interfaces'),

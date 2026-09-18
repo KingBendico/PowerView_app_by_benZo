@@ -3,7 +3,7 @@ const path = require('node:path');
 const { normalizeAddress } = require('./gateway-client');
 const { cleanSettings: cleanShortcutSettings } = require('../shared/shortcut-format');
 const { cleanHome: cleanSavedControls } = require('../shared/saved-controls-format');
-const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, shortcuts: {}, savedControls: {}, routines: {}, homeLayout: {}, homeHidden: {}, roomSort: 'default', prefsMigrated: false });
+const defaults = () => ({ schemaVersion: 2, ipAddress: '', theme: 'light', closeToTray: false, favorites: {}, recent: {}, appearances: {}, shortcuts: {}, savedControls: {}, routines: {}, triggers: {}, homeLayout: {}, homeHidden: {}, roomSort: 'default', prefsMigrated: false });
 function cleanAppearance(value) {
   if (!value || !['shade', 'curtain'].includes(value.kind) || !['pleated', 'roller', 'slatted'].includes(value.fabric)
     || value.color !== null && !/^#[a-f0-9]{6}$/i.test(value.color)
@@ -68,6 +68,12 @@ function cleanConfig(raw) {
         });
         return steps.length === item.steps.length ? [{ id: item.id, name: item.name.trim(), steps }] : [];
       });
+    }
+  }
+  if (raw.triggers && typeof raw.triggers === 'object' && !Array.isArray(raw.triggers)) {
+    for (const [host, entries] of Object.entries(raw.triggers).slice(0, 100)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(host) || !Array.isArray(entries)) continue;
+      config.triggers[host] = entries.slice(0, 50).flatMap(item => item && typeof item.id === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(item.id) && typeof item.routineId === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(item.routineId) && /^([01]\d|2[0-3]):[0-5]\d$/.test(item.time) && Array.isArray(item.days) && item.days.every(day => Number.isInteger(day) && day >= 0 && day <= 6) ? [{ id: item.id, routineId: item.routineId, time: item.time, days: [...new Set(item.days)], enabled: item.enabled !== false }] : []);
     }
   }
   if (raw.homeLayout && typeof raw.homeLayout === 'object' && !Array.isArray(raw.homeLayout)) {
