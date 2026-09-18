@@ -22,6 +22,7 @@ The app can:
 - show device health with documented battery ranges, power source, RSSI, firmware, offline state, and session activity history;
 - customize the Home dashboard card order and visibility, including Whole home, Favorite scenes, Saved controls, Pinned shades, and Your rooms, with drag-and-drop, Show checkboxes, or keyboard move controls saved per gateway;
 - manage pinned shades and favorite scenes from Home with per-gateway ordering and one-click removal;
+- create local routines that sequence gateway scenes, saved controls and timed pauses, with validation before saving;
 - run without a real gateway in Demo mode for design review and testing.
 
 The app does not currently create, edit, enable, disable, or delete native gateway scenes or schedules. The documented local API exposes scene activation and schedule reads. Hunter Douglas RemoteConnect can manage those objects through its authenticated cloud service, but this project does not use or reverse-engineer that service. See [API capabilities](docs/API_CAPABILITIES.md) and [home insights](docs/HOME_INSIGHTS.md).
