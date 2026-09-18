@@ -40,7 +40,8 @@ function getPrefs() {
   const nameFor = (kind, id) => state.snapshot?.[kind].find(item => item.id === id)?.name || id;
   return { theme: config.theme, closeToTray: config.closeToTray, roomSort: config.roomSort,
     favoriteScenes: state.favorites.sceneIds.map(id => ({ id, name: nameFor('scenes', id) })),
-    favoriteShades: state.favorites.shadeIds, recentScenes: recent.scenes, recentRooms: recent.rooms };
+    favoriteShades: state.favorites.shadeIds, recentScenes: recent.scenes, recentRooms: recent.rooms,
+    homeLayout: config.homeLayout[state.connection.address] || [] };
 }
 function setPrefs(prefs) {
   if (!prefs || typeof prefs !== 'object') throw new Error('Invalid preferences.');
@@ -50,6 +51,11 @@ function setPrefs(prefs) {
     config.favorites[address] = { ...existing, sceneIds: Array.isArray(prefs.favoriteScenes)
       ? prefs.favoriteScenes.map(item => String(item.id)).filter(id => !state.snapshot || state.snapshot.scenes.some(scene => scene.id === id)) : existing.sceneIds };
     config.recent[address] = { scenes: prefs.recentScenes, rooms: prefs.recentRooms };
+    if (Array.isArray(prefs.homeLayout)) {
+      const allowed = new Set(['overview', 'scenes', 'saved', 'pinned', 'rooms']);
+      const order = [...new Set(prefs.homeLayout.filter(item => typeof item === 'string' && allowed.has(item)))];
+      if (order.length === 5) config.homeLayout[address] = order;
+    }
   }
   for (const key of ['theme', 'roomSort', 'closeToTray']) if (key in prefs) config[key] = prefs[key];
   controller.state.config = store.save(config); controller.publish(); return getPrefs();

@@ -2,6 +2,45 @@
 let appState = null;
 let refreshPromise = null;
 let renderedSignature = '';
+const HOME_LAYOUT_DEFAULT = ['overview', 'scenes', 'saved', 'pinned', 'rooms'];
+const HOME_CARD_LABELS = { overview: 'Whole home', scenes: 'Favorite scenes', saved: 'Saved controls', pinned: 'Pinned shades', rooms: 'Your rooms' };
+function homeLayout() {
+    const order = Array.isArray(prefs.homeLayout) ? [...new Set(prefs.homeLayout)] : [];
+    return [...order.filter(id => HOME_LAYOUT_DEFAULT.includes(id)), ...HOME_LAYOUT_DEFAULT.filter(id => !order.includes(id))];
+}
+function applyHomeLayout(root) {
+    const cards = new Map([...root.querySelectorAll('[data-home-card]')].map(card => [card.dataset.homeCard, card]));
+    for (const id of homeLayout()) if (cards.has(id)) root.appendChild(cards.get(id));
+}
+function openHomeLayoutEditor() {
+    if (document.querySelector('#homeLayoutDialog')) return;
+    const dialog = document.createElement('dialog'); dialog.id = 'homeLayoutDialog'; dialog.className = 'home-layout-dialog';
+    dialog.setAttribute('aria-labelledby', 'homeLayoutTitle');
+    dialog.innerHTML = '<form method="dialog"><header><div><div class="page-eyebrow">MAKE HOME YOURS</div><h2 id="homeLayoutTitle">Customize Home layout</h2></div><button type="button" class="shortcuts-close" aria-label="Close layout editor">×</button></header><p>Choose the order of the Home cards. Changes are saved separately for each gateway.</p><ol class="home-layout-list"></ol><footer><button type="button" class="text-action" data-layout-reset>Reset order</button><span><button type="button" class="shortcuts-cancel">Cancel</button><button type="submit" class="shortcuts-save">Save layout</button></span></footer></form>';
+    const list = dialog.querySelector('.home-layout-list'); let order = homeLayout();
+    function render() {
+        list.replaceChildren();
+        order.forEach((id, index) => {
+            const row = document.createElement('li'); row.className = 'home-layout-row'; row.draggable = true; row.dataset.layoutId = id;
+            const grip = document.createElement('span'); grip.className = 'home-layout-grip'; grip.textContent = '↕'; grip.setAttribute('aria-hidden', 'true'); row.appendChild(grip);
+            const label = document.createElement('strong'); label.textContent = HOME_CARD_LABELS[id]; row.appendChild(label);
+            const up = document.createElement('button'); up.type = 'button'; up.className = 'home-layout-move'; up.textContent = '↑'; up.setAttribute('aria-label', `Move ${HOME_CARD_LABELS[id]} up`); up.disabled = index === 0; up.addEventListener('click', () => { [order[index - 1], order[index]] = [order[index], order[index - 1]]; render(); }); row.appendChild(up);
+            const down = document.createElement('button'); down.type = 'button'; down.className = 'home-layout-move'; down.textContent = '↓'; down.setAttribute('aria-label', `Move ${HOME_CARD_LABELS[id]} down`); down.disabled = index === order.length - 1; down.addEventListener('click', () => { [order[index], order[index + 1]] = [order[index + 1], order[index]]; render(); }); row.appendChild(down);
+            row.addEventListener('dragstart', event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', id); row.classList.add('is-dragging'); });
+            row.addEventListener('dragend', () => row.classList.remove('is-dragging'));
+            row.addEventListener('dragover', event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; });
+            row.addEventListener('drop', event => { event.preventDefault(); const from = order.indexOf(event.dataTransfer.getData('text/plain')); const to = order.indexOf(id); if (from >= 0 && to >= 0 && from !== to) { const [moved] = order.splice(from, 1); order.splice(to, 0, moved); render(); } });
+            list.appendChild(row);
+        });
+    }
+    render();
+    dialog.querySelector('[data-layout-reset]').addEventListener('click', () => { order = [...HOME_LAYOUT_DEFAULT]; render(); });
+    dialog.querySelector('.shortcuts-close').addEventListener('click', () => dialog.close());
+    dialog.querySelector('.shortcuts-cancel').addEventListener('click', () => dialog.close());
+    dialog.querySelector('form').addEventListener('submit', async event => { event.preventDefault(); prefs.homeLayout = [...order]; await persistPrefs(); dialog.close(); showHome(); });
+    dialog.addEventListener('close', () => dialog.remove(), { once: true });
+    document.body.appendChild(dialog); dialog.showModal();
+}
 function isConnected() { return ['connected', 'demo'].includes(appState?.connection.status); }
 function closedPercent(shade) {
     const value = shade.positions.primary;
@@ -35,6 +74,7 @@ function applyState(state) {
     }
     const recent = state.config.recent[state.connection.address] || { scenes: [], rooms: [] };
     prefs = { ...prefs, theme: state.config.theme, closeToTray: state.config.closeToTray, roomSort: state.config.roomSort,
+        homeLayout: state.config.homeLayout?.[state.connection.address] || [],
         favoriteShades: state.favorites.shadeIds,
         favoriteScenes: state.favorites.sceneIds.map(id => ({ id, name: state.snapshot?.scenes.find(scene => scene.id === id)?.name || id })),
         recentScenes: recent.scenes, recentRooms: recent.rooms };
@@ -193,7 +233,9 @@ function showHome() {
         }
         content.appendChild(empty); return;
     }
-    const summary = document.createElement('div'); summary.className = 'home-summary-grid'; content.appendChild(summary);
+    const dashboard = document.createElement('div'); dashboard.className = 'home-dashboard'; content.appendChild(dashboard);
+    const layoutButton = document.createElement('button'); layoutButton.type = 'button'; layoutButton.className = 'text-action home-layout-button'; layoutButton.textContent = 'Customize layout'; layoutButton.addEventListener('click', openHomeLayoutEditor); title.appendChild(layoutButton);
+    const overviewCard = document.createElement('section'); overviewCard.className = 'home-dashboard-card home-dashboard-overview'; overviewCard.dataset.homeCard = 'overview';
     const overview = document.createElement('section'); overview.className = 'home-overview';
     const details = document.createElement('div'); details.className = 'overview-copy';
     const heading = document.createElement('h3'); heading.textContent = 'Whole home'; details.appendChild(heading);
@@ -201,24 +243,26 @@ function showHome() {
     const quick = createBulkShadeToolbar(allShades.map(shade => shade.id), 'Whole home'); if (quick) details.appendChild(quick);
     overview.appendChild(details);
     const illustration = document.createElement('div'); illustration.className = 'overview-window'; illustration.setAttribute('aria-hidden','true');
-    illustration.innerHTML = '<div class="overview-sun"></div><div class="overview-slats"></div>'; overview.appendChild(illustration); summary.appendChild(overview);
-    const scenes = document.createElement('section'); scenes.className = 'home-favorite-scenes';
+    illustration.innerHTML = '<div class="overview-sun"></div><div class="overview-slats"></div>'; overview.appendChild(illustration); overviewCard.appendChild(overview); dashboard.appendChild(overviewCard);
+    const scenes = document.createElement('section'); scenes.className = 'home-dashboard-card home-favorite-scenes'; scenes.dataset.homeCard = 'scenes';
     const scenesTitle = document.createElement('h3'); scenesTitle.textContent = 'Favorite scenes'; scenes.appendChild(scenesTitle);
     const sceneGrid = document.createElement('div'); sceneGrid.className = 'scene-tile-grid';
     for (const scene of allScenes.filter(item => isFavoriteSceneId(item.id))) sceneGrid.appendChild(buildSceneTile(scene));
     if (!sceneGrid.children.length) { const note = document.createElement('p'); note.textContent = 'Star a scene in Scenes to keep it here and in the tray menu.'; sceneGrid.appendChild(note); }
-    scenes.appendChild(sceneGrid); summary.appendChild(scenes);
-    window.savedControls?.mountHome(content);
+    scenes.appendChild(sceneGrid); dashboard.appendChild(scenes);
+    window.savedControls?.mountHome(dashboard); document.getElementById('savedControlsHome')?.classList.add('home-dashboard-card'); document.getElementById('savedControlsHome')?.setAttribute('data-home-card', 'saved');
+    const pinnedCard = document.createElement('section'); pinnedCard.className = 'home-dashboard-card home-pinned-card'; pinnedCard.dataset.homeCard = 'pinned';
     const pinsHeader = document.createElement('div'); pinsHeader.className = 'home-section-heading';
     const pinsTitle = document.createElement('h3'); pinsTitle.textContent = 'Pinned shades'; pinsHeader.appendChild(pinsTitle);
-    const manage = document.createElement('button'); manage.type = 'button'; manage.className = 'text-action'; manage.textContent = 'Browse rooms →'; manage.addEventListener('click',fetchAndShowRooms); pinsHeader.appendChild(manage); content.appendChild(pinsHeader);
+    const manage = document.createElement('button'); manage.type = 'button'; manage.className = 'text-action'; manage.textContent = 'Browse rooms →'; manage.addEventListener('click',fetchAndShowRooms); pinsHeader.appendChild(manage); pinnedCard.appendChild(pinsHeader);
     const shadeGrid = document.createElement('div'); shadeGrid.className = 'shade-tile-grid';
     for (const shade of allShades.filter(item => appState.favorites.shadeIds.includes(item.id))) shadeGrid.appendChild(buildShadeTile(shade));
     if (!shadeGrid.children.length) { const note = document.createElement('p'); note.textContent = 'Use the star on a shade in Blinds to pin its controls here.'; shadeGrid.appendChild(note); }
-    content.appendChild(shadeGrid);
+    pinnedCard.appendChild(shadeGrid); dashboard.appendChild(pinnedCard);
+    const roomsCard = document.createElement('section'); roomsCard.className = 'home-dashboard-card home-rooms-card'; roomsCard.dataset.homeCard = 'rooms';
     const roomsHeader = document.createElement('div'); roomsHeader.className = 'home-section-heading';
     const roomsTitle = document.createElement('h3'); roomsTitle.textContent = 'Your rooms'; roomsHeader.appendChild(roomsTitle);
-    const browse = document.createElement('button'); browse.type = 'button'; browse.className = 'text-action'; browse.textContent = 'All rooms →'; browse.addEventListener('click',fetchAndShowRooms); roomsHeader.appendChild(browse);content.appendChild(roomsHeader);
+    const browse = document.createElement('button'); browse.type = 'button'; browse.className = 'text-action'; browse.textContent = 'All rooms →'; browse.addEventListener('click',fetchAndShowRooms); roomsHeader.appendChild(browse);
     const roomGrid = document.createElement('div'); roomGrid.className = 'home-room-grid';
     for (const room of sortRoomsForDisplay(allRooms)) {
         const button = document.createElement('button'); button.type = 'button'; button.className = 'home-room-card';
@@ -229,7 +273,7 @@ function showHome() {
         count.textContent = `${shades.length} ${shades.length === 1 ? 'shade' : 'shades'}`; button.appendChild(count);
         button.addEventListener('click', () => navigateToRoomShades(room)); roomGrid.appendChild(button);
     }
-    content.appendChild(roomGrid);
+    roomsCard.appendChild(roomsHeader); roomsCard.appendChild(roomGrid); dashboard.appendChild(roomsCard); applyHomeLayout(dashboard);
     for (const shade of allShades) updateShadeBatteryRowInDom(shade.id);
     updateSceneButtons(); updateCommandAvailability(); updateHomeSummary(); updateNavigation();
 }

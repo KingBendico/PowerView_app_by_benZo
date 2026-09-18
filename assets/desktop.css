@@ -61,6 +61,22 @@ body.has-status-banner { padding-top: 0; }
 #demoModeBar button { margin-left: 8px; font-size: 10px; }
 .app-status-banner { left: 184px; z-index: 1450; top: 75px; padding: 7px 16px; font-size: 11px; text-align: left; }
 .home-summary-grid { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(0,1fr); gap: 20px; align-items: start; }
+.home-dashboard { display: flex; flex-direction: column; gap: 22px; }
+.home-dashboard-card { min-width: 0; }
+.home-layout-button { font-size: 11px; vertical-align: middle; margin-left: 10px; }
+.home-layout-dialog { width: min(520px,calc(100vw - 32px)); max-width: 520px; border: 1px solid var(--border); border-radius: 18px; padding: 0; background: var(--surface); color: var(--text); box-shadow: 0 24px 90px #07190f50; }
+.home-layout-dialog::backdrop { background: #10191488; backdrop-filter: blur(3px); }
+.home-layout-dialog form { padding: 25px; }
+.home-layout-dialog header,.home-layout-dialog footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.home-layout-dialog h2 { margin: 4px 0 0; font-size: 21px; }
+.home-layout-dialog p { color: var(--text-muted); font-size: 12px; line-height: 1.55; }
+.home-layout-list { display: grid; gap: 8px; list-style: none; padding: 0; margin: 18px 0 24px; }
+.home-layout-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); cursor: grab; }
+.home-layout-row.is-dragging { opacity: .45; }
+.home-layout-grip { color: var(--text-muted); font-size: 16px; }
+.home-layout-row strong { flex: 1; font-size: 13px; }
+.home-layout-move { width: 29px; height: 29px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; }
+.home-layout-move:disabled { opacity: .35; cursor: default; }
 .home-overview { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 22px; background: var(--soft-accent); border: 1px solid color-mix(in srgb,var(--accent) 12%,transparent); border-radius: 16px; overflow: hidden; min-height: 165px; }
 .overview-copy { max-width: 440px; text-align: left; }
 .overview-copy h3 { font-size: 22px; letter-spacing: -.6px; line-height: 1.25; font-weight: 600; margin: 0 0 8px; text-align: left; }
