@@ -1892,62 +1892,6 @@ p {
     pointer-events: none;
 }
 
-/* Draft target preview: this layer follows the pointer while the reported
-   fabric stays in place until release. */
-.motion-target {
-    position: absolute;
-    z-index: 6;
-    display: block;
-    pointer-events: none;
-    border-color: var(--accent);
-    border-style: dashed;
-    filter: drop-shadow(0 0 3px rgba(14, 165, 233, 0.55));
-    transition: opacity 80ms linear;
-}
-.motion-target[hidden] { display: none; }
-.motion-target::after {
-    content: '';
-    position: absolute;
-    width: 7px;
-    height: 7px;
-    border: 2px solid var(--accent);
-    border-radius: 50%;
-    background: var(--surface);
-    box-shadow: 0 0 0 2px rgba(255,255,255,.75), 0 0 8px rgba(14,165,233,.65);
-}
-.motion-target.target-primary,
-.motion-target.target-secondary {
-    left: 0;
-    right: 0;
-    height: 0;
-    border-top-width: 2px;
-}
-.motion-target.target-primary::after { right: -5px; top: -6px; }
-.motion-target.target-secondary::after { left: -5px; top: -6px; }
-.shade-window-inner[data-covering='curtain'] .motion-target.target-primary,
-.shade-window-inner[data-covering='curtain'] .motion-target.target-secondary {
-    top: 0;
-    bottom: 0;
-    left: auto;
-    right: auto;
-    width: 0;
-    height: auto;
-    border-top: 0;
-    border-left-width: 2px;
-}
-.shade-window-inner[data-covering='curtain'] .motion-target.target-primary::after { top: -5px; right: auto; bottom: -5px; left: -6px; }
-.shade-window-inner[data-covering='curtain'] .motion-target.target-secondary::after { top: auto; right: auto; bottom: -5px; left: -6px; }
-.shade-window-inner.shade-window-dragging .motion-target {
-    animation: shade-target-pulse 900ms ease-in-out infinite alternate;
-}
-@keyframes shade-target-pulse {
-    from { opacity: .72; }
-    to { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .shade-window-inner.shade-window-dragging .motion-target { animation: none; }
-}
-
 .shade-fabric-single {
     top: auto;
     bottom: 0;
